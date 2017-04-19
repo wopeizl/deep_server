@@ -17,6 +17,8 @@ namespace deep_server{
         string model = "";
         string weights = "";
         string default_c = "";
+        string gpu = "";
+        string cpu = "";
 
         deepconfig() {
             opt_group{ custom_options_, "global" }
@@ -27,6 +29,8 @@ namespace deep_server{
                 .add(model, "model,m", "caffe model file")
                 .add(weights, "weights,w", "caffe weights file")
                 .add(default_c, "default_c,d", "caffe default_c file")
+                .add(gpu, "gpu,g", "caffe gpu numbers, notes that this option will disable the cpu option")
+                .add(cpu, "cpu,c", "caffe cpu numbers")
                 .add(http_mode, "http-mode,hm", "enable http mode");
         }
 

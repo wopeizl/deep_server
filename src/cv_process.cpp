@@ -33,7 +33,7 @@ bool cvprocess::applyColorMap(std::vector<unsigned char>& idata, std::vector<uns
     if (!readImage(idata, src))
         return false;
 
-//    cv::applyColorMap(src, dst, 0);
+    //cv::applyColorMap(src, dst, 0);
 
     return writeImage(dst, odata);
 }
@@ -73,8 +73,10 @@ bool cvprocess::process_caffe_result(std::vector<caffe::Frcnn::BBox<float>> resu
         if (results[ir].confidence > 0.9
             && results[ir].id == 7) {
             cv::Rect rect(results[ir][0], results[ir][1], results[ir][2], results[ir][3]);
-            cv::rectangle(cv_image, rect, cv::Scalar(255, 0, 0), 2);
+           // cv::rectangle(cv_image, rect, cv::Scalar(255, 0, 0), 2);
 
+           cv::rectangle(cv_image, cv::Point(results[ir][0],results[ir][1])
+                       , cv::Point(results[ir][2],results[ir][3]), cv::Scalar(255, 0, 0), 2);
             char text[64];
             sprintf(text, "%lf", results[ir].confidence);
             cv::putText(cv_image

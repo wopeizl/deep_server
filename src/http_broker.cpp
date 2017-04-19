@@ -48,8 +48,9 @@ namespace deep_server{
 
                     std::string result = writer.write(root);
 
+                    //self->write(handle, cstr_size(http_img_header), http_img_header);
                     self->write(handle, result.size(), result.c_str());
-                    //self->write(handle, content.size(), content.c_str());
+                    //self->write(handle, cstr_size(http_img_tail), http_img_tail);
                     self->flush(handle);
 
                     //aout(self) << result << endl;

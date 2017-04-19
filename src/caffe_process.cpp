@@ -3,6 +3,8 @@
 
 DEFINE_string(gpu, "",
     "Optional; run in GPU mode on the given device ID, Empty is CPU");
+DEFINE_string(cpu, "",
+    "Optional; run in CPU mode");
 DEFINE_string(model, "",
     "The model definition protocol buffer text file.");
 DEFINE_string(weights, "",
@@ -18,9 +20,10 @@ DEFINE_string(out_file, "",
 DEFINE_int32(max_per_image, 100,
     "Limit to max_per_image detections *over all classes*");
 
+bool caffe_process::initialized = false;
+atomic_flag caffe_flag = ATOMIC_FLAG_INIT;
+
 bool caffe_process::init(vector<string>& flags) {
-    FLAGS_alsologtostderr = 1;
-    gflags::SetVersionString(AS_STRING(CAFFE_VERSION));
 
     int argc = flags.size();
     std::vector<char*> cstrings;
@@ -28,8 +31,19 @@ bool caffe_process::init(vector<string>& flags) {
         cstrings.push_back(const_cast<char*>(flags[i].c_str()));
     char** argv = &cstrings[0];
 
-    caffe::GlobalInit(&argc, &argv);
-    CHECK(FLAGS_gpu.size() == 0 || FLAGS_gpu.size() == 1) << "Can only support one gpu or none";
+    if (!initialized) {
+        while (caffe_flag.test_and_set());
+        if (!initialized) {
+            FLAGS_alsologtostderr = 1;
+            gflags::SetVersionString(AS_STRING(CAFFE_VERSION));
+            caffe::GlobalInit(&argc, &argv);
+            initialized = true;
+        }
+        caffe_flag.clear();
+    }
+
+    //CHECK(FLAGS_gpu.size() == 0 || FLAGS_gpu.size() == 1) << "Can only support one gpu or none";
+
     int gpu_id = -1;
     if (FLAGS_gpu.size() > 0)
         gpu_id = boost::lexical_cast<int>(FLAGS_gpu);
@@ -51,12 +65,25 @@ bool caffe_process::init(vector<string>& flags) {
     std::string config_file = FLAGS_default_c.c_str();
     const int max_per_image = FLAGS_max_per_image;
 
-    detector = new FRCNN_API::Detector(proto_file, model_file, config_file);
+    wrapper = new FRCNN_API::Frcnn_wrapper(proto_file, model_file, config_file);
 
     return true;
 }
 
-bool caffe_process::predict(cv::Mat& cv_image, std::vector<caffe::Frcnn::BBox<float>>& results) {
-    detector->predict(cv_image, results);
-    return true;
+bool caffe_process::prepare(const cv::Mat &input, cv::Mat &img) {
+    return wrapper->prepare(input, img);
 }
+
+bool caffe_process::preprocess(const cv::Mat &img, vector<boost::shared_ptr<Blob<float> >>& input) {
+    return wrapper->preprocess(img, input);
+}
+
+bool caffe_process::predict(vector<boost::shared_ptr<Blob<float> >>& input, vector<boost::shared_ptr<Blob<float> >>& output) {
+    return wrapper->predict(input, output);
+}
+
+bool caffe_process::postprocess(const cv::Mat &img, vector<boost::shared_ptr<Blob<float> >>& input, std::vector<caffe::Frcnn::BBox<float> > &output) {
+    return wrapper->postprocess(img, input, output);
+}
+
+

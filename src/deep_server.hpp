@@ -5,10 +5,26 @@
 #ifndef DEEP_SERVER_DEEP_SERVER_H
 #define DEEP_SERVER_DEEP_SERVER_H
 
+#define NO_STRICT 
+
 #include "deep_config.hpp"
 #include "http_parser.hpp"
 #include "utils.hpp"
 #include "json/json.h"
+#include "cv_process.hpp"
+#include "caffe_process.hpp"
+#include <chrono>
+
+typedef std::chrono::high_resolution_clock clock_;
+typedef std::chrono::duration<double, std::ratio<1, 1000> > micro_second_;
+
+//template<typename F, typename ...Args>
+//static auto duration(F&& func, Args&&... args)
+//{
+//    auto start = std::chrono::steady_clock::now();
+//    std::forward<decltype(func)>(func)(std::forward<Args>(args)...);
+//    return std::chrono::duration_cast<TimeT>(std::chrono::steady_clock::now() - start);
+//}
 
 class httpanalyzer;
 
@@ -108,7 +124,8 @@ using pprocess_atom = atom_constant<atom("pprocess")>;
 using gprocess_atom = atom_constant<atom("gprocess")>;
 using gpprocess_atom = atom_constant<atom("gpprocess")>;
 using downloader_atom = atom_constant<atom("downloader")>;
-using uploader_atom = atom_constant<atom("uploader")>;
+using prepare_atom = atom_constant<atom("prepare")>;
+using preprocess_atom = atom_constant<atom("preproc")>;
 using fault_atom = atom_constant<atom("fault")>;
 
 using caffe_process_atom = atom_constant<atom("cf_proc")>;
@@ -160,7 +177,7 @@ Hi there! :)
 //)__";
 
 constexpr const char http_img_header[] = R"__(HTTP/1.1 200 OK
-Content-Type: text/html
+Content-Type: json
 Connection: keep-alive
 
 )__";
@@ -181,10 +198,22 @@ namespace deep_server{
     behavior http_worker(http_broker* self, connection_handle hdl, actor cf_manager);
     behavior tcp_broker(broker* self, connection_handle hdl, actor cf_manager);
 
+    struct caffe_data {
+        cv::Mat cv_image;
+        cv::Mat out_image;
+        std::vector<boost::shared_ptr<caffe::Blob<float> >> input;
+        std::vector<boost::shared_ptr<caffe::Blob<float> >> output;
+        std::vector<caffe::Frcnn::BBox<float>> results;
+        connection_handle handle;
+        double time_consumed;
+    };
+
     class processor : public event_based_actor {
     public:
 
         ~processor() {
+            DEEP_LOG_INFO("Whole time to process this image : " + boost::lexical_cast<string>(pcaffe_data->time_consumed) + " ms!");
+
             DEEP_LOG_INFO("Finish this round processor.");
         }
 
@@ -205,9 +234,11 @@ namespace deep_server{
         std::string name_;
         behavior    input_;
         behavior    framesync_;
-        behavior    uploader_;
+        behavior    prepare_;
+        behavior    preprocess_;
         behavior    downloader_;
         behavior    processor_;
+        std::unique_ptr<caffe_data> pcaffe_data;
     };
 
     caf::logger& glog(actor* self);
