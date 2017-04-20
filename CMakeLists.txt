@@ -200,7 +200,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 # packages                                                                                                                                                                                                 
 find_package(CUDA)
 
-set(DEEP_ROOT /data1/zhangyuanpeng/workspace/online_serving/SDK/deep_server/)
+set(DEEP_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(Deep_server_LINKER_LIBS "")
 set(Deep_server_INCLUDE_DIRS "")
@@ -293,7 +293,8 @@ target_link_libraries(deep_server
           /lib64/libboost_system.so
           /lib64/libboost_python.so
           /lib64/libpython2.7.so
-          "${CAFFE_ROOT}/lib/libcaffe.so"
+          #"${CAFFE_ROOT}/lib/libcaffe.so"
+          "${DEEP_ROOT}/3rd/auto_caffe/build/lib/libcaffe.so"
           "${CAF_ROOT}/build/lib/libcaf_core.so"
           "${CAF_ROOT}/build/lib/libcaf_io.so"
  #         "${Deep_server_LINKER_LIBS}"
