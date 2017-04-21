@@ -9,7 +9,7 @@ namespace deep_server {
         std::string timestamp_to_d_string() {
             static char mbstr[256];
             std::time_t t = std::time(NULL);
-            if (std::strftime(mbstr, sizeof(mbstr), "[%Y-%m-%d %M:%H:%S CST]", std::localtime(&t))) {
+            if (std::strftime(mbstr, sizeof(mbstr), "[%Y-%m-%d %H:%M:%S CST]", std::localtime(&t))) {
                 return std::string(mbstr);
             }
             else {

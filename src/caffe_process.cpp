@@ -5,6 +5,8 @@ DEFINE_string(gpu, "",
     "Optional; run in GPU mode on the given device ID, Empty is CPU");
 DEFINE_string(cpu, "",
     "Optional; run in CPU mode");
+DEFINE_string(solver_count, "",
+    "count for caffe solver count");
 DEFINE_string(model, "",
     "The model definition protocol buffer text file.");
 DEFINE_string(weights, "",
@@ -23,7 +25,7 @@ DEFINE_int32(max_per_image, 100,
 bool caffe_process::initialized = false;
 atomic_flag caffe_flag = ATOMIC_FLAG_INIT;
 
-bool caffe_process::init(vector<string>& flags) {
+bool caffe_process::init(vector<string>& flags, int gpu_id) {
 
     int argc = flags.size();
     std::vector<char*> cstrings;
@@ -44,14 +46,22 @@ bool caffe_process::init(vector<string>& flags) {
 
     //CHECK(FLAGS_gpu.size() == 0 || FLAGS_gpu.size() == 1) << "Can only support one gpu or none";
 
-    int gpu_id = -1;
-    if (FLAGS_gpu.size() > 0)
-        gpu_id = boost::lexical_cast<int>(FLAGS_gpu);
+    //int gpu_id = -1;
+    //if (FLAGS_gpu.size() > 0)
+    //    gpu_id = boost::lexical_cast<int>(FLAGS_gpu);
+
+    int solver_count = 1;
+    if (FLAGS_solver_count.size() > 0)
+        solver_count = boost::lexical_cast<int>(FLAGS_solver_count);
+    solver_count = solver_count > 0 ? solver_count : 1;
 
     if (gpu_id >= 0) {
 #ifndef CPU_ONLY
         caffe::Caffe::SetDevice(gpu_id);
         caffe::Caffe::set_mode(caffe::Caffe::GPU);
+        Caffe::set_solver_count(solver_count);
+        Caffe::set_solver_rank(gpu_id);
+        Caffe::set_multiprocess(true);
 #else
         LOG(FATAL) << "CPU ONLY MODEL, BUT PROVIDE GPU ID";
 #endif

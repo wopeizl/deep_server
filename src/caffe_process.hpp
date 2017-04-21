@@ -8,14 +8,16 @@ inline std::string FloatToString(float x) { char A[100]; sprintf(A, "%.4f", x); 
 
 class caffe_process {
 public:
-    bool init(vector<string>& flags);
+    bool init(vector<string>& flags, int gpu_id);
 
     bool prepare(const cv::Mat &input, cv::Mat &img);
     bool preprocess(const cv::Mat &img_in, vector<boost::shared_ptr<Blob<float> >>& input);
     bool predict(vector<boost::shared_ptr<Blob<float> >>& input, vector<boost::shared_ptr<Blob<float> >>& output);
     bool postprocess(const cv::Mat &img, vector<boost::shared_ptr<Blob<float> >>& input, std::vector<caffe::Frcnn::BBox<float> > &output);
 
-    caffe_process() {}
+    caffe_process() {
+        DEEP_LOG_INFO("new caffe process!");
+    }
     ~caffe_process() {}
 private:
     FRCNN_API::Frcnn_wrapper* wrapper;

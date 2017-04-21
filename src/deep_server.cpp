@@ -176,7 +176,7 @@ namespace deep_server{
 
     class caffe_proc : public blocking_actor{
     public:
-        caffe_proc(actor_config& cfg, bool isgpu_, int i) : blocking_actor(cfg), xcfg(cfg), isgpu(isgpu_), index(i) {
+        caffe_proc(actor_config& cfg, int count, int i) : blocking_actor(cfg), xcfg(cfg), solver_count(count), index(i) {
         }
 
         void act() override {
@@ -189,7 +189,7 @@ namespace deep_server{
             flags.push_back(dcfg.weights);
             flags.push_back("--default_c");
             flags.push_back(dcfg.default_c);
-            if (isgpu) {
+            if (index >= 0) {
                 flags.push_back("--gpu");
                 flags.push_back(boost::lexical_cast<string, int>(index));
             }
@@ -197,9 +197,11 @@ namespace deep_server{
                 flags.push_back("--cpu");
                 flags.push_back("-1");
             }
+            flags.push_back("--solver_count");
+            flags.push_back(boost::lexical_cast<string, int>(solver_count));
 
             std::chrono::time_point<clock_> beg_ = clock_::now();
-            if (!caffep.init(flags)) {
+            if (!caffep.init(flags, index)) {
                 DEEP_LOG_ERROR("failed to start caffe !!!!!!!!!!!!!!!!!!!!!!! ");
             }
             double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
@@ -208,7 +210,7 @@ namespace deep_server{
             bool running = true;
             this->receive_while(running) (
                 [=](const caffe_process_atom, actor& source, uint64 datapointer) {
-                DEEP_LOG_INFO("new request to caffe proc to process data");
+                DEEP_LOG_INFO("new request to caffe proc " + boost::lexical_cast<string>(index) + " to process data");
 
                 caffe_data* data = (caffe_data*)datapointer;
                 std::chrono::time_point<clock_> beg_ = clock_::now();
@@ -231,7 +233,7 @@ namespace deep_server{
     private:
         caffe_process caffep;
         actor_config xcfg;
-        bool isgpu;
+        int solver_count;
         int index;
     };
 
@@ -294,7 +296,7 @@ namespace deep_server{
             int gpus = boost::lexical_cast<int>(cfg.gpu);
             if (gpus > 0) {
                 for (auto i = 0; i < gpus; ++i) {
-                    auto proc = self->spawn<caffe_proc>(true, i);
+                    auto proc = self->spawn<caffe_proc>(gpus, i);
                     self->state.caffe_actors.push_back(proc);
                     self->state.size = self->state.caffe_actors.size();
                 }
@@ -308,7 +310,7 @@ namespace deep_server{
             }
             if (cpus > 0) {
                 for (auto i = 0; i < cpus; ++i) {
-                    auto proc = self->spawn<caffe_proc>(false, i);
+                    auto proc = self->spawn<caffe_proc>(1, -1);
                     self->state.caffe_actors.push_back(proc);
                     self->state.size = self->state.caffe_actors.size();
                 }
