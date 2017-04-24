@@ -198,6 +198,18 @@ namespace deep_server{
     behavior http_worker(http_broker* self, connection_handle hdl, actor cf_manager);
     behavior tcp_broker(broker* self, connection_handle hdl, actor cf_manager);
 
+    struct time_consume{
+        double whole_time;
+        double jsonparse_time;
+        double decode_time;
+        double cvreadimage_time;
+        double prepare_time;
+        double preprocess_time;
+        double predict_time;
+        double postprocess_time;
+        double writeresult_time;
+    };
+
     struct caffe_data {
         cv::Mat cv_image;
         cv::Mat out_image;
@@ -205,14 +217,25 @@ namespace deep_server{
         std::vector<boost::shared_ptr<caffe::Blob<float> >> output;
         std::vector<caffe::Frcnn::BBox<float>> results;
         connection_handle handle;
-        double time_consumed;
+        struct time_consume time_consumed;
     };
 
     class processor : public event_based_actor {
     public:
 
         ~processor() {
-            DEEP_LOG_INFO("Whole time to process this image : " + boost::lexical_cast<string>(pcaffe_data->time_consumed) + " ms!");
+            DEEP_LOG_INFO("Whole time to process this image : " + boost::lexical_cast<string>(pcaffe_data->time_consumed.whole_time) + " ms!");
+            DEEP_LOG_INFO("Time details  : " 
+                + boost::lexical_cast<string>(pcaffe_data->time_consumed.jsonparse_time) + ","
+                + boost::lexical_cast<string>(pcaffe_data->time_consumed.decode_time) + ","
+                + boost::lexical_cast<string>(pcaffe_data->time_consumed.cvreadimage_time) + ","
+                + boost::lexical_cast<string>(pcaffe_data->time_consumed.prepare_time) + ","
+                + boost::lexical_cast<string>(pcaffe_data->time_consumed.preprocess_time) + ","
+                + boost::lexical_cast<string>(pcaffe_data->time_consumed.predict_time) + ","
+                + boost::lexical_cast<string>(pcaffe_data->time_consumed.postprocess_time) + ","
+                + boost::lexical_cast<string>(pcaffe_data->time_consumed.writeresult_time) + ","
+                + boost::lexical_cast<string>(pcaffe_data->time_consumed.whole_time) + ","
+                + " ms!");
 
             DEEP_LOG_INFO("Finish this round processor.");
         }

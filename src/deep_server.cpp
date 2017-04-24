@@ -17,7 +17,7 @@ namespace deep_server{
         name_(std::move(n)), bk(s), handle_(handle), cf_manager(cm){
 
         pcaffe_data.reset(new caffe_data());
-        pcaffe_data->time_consumed = 0.f;
+        pcaffe_data->time_consumed.whole_time = 0.f;
 
         //set_default_handler(skip);
 
@@ -30,7 +30,8 @@ namespace deep_server{
                 return;
             }
             double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed += elapsed;
+            pcaffe_data->time_consumed.prepare_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
             DEEP_LOG_INFO("prepare caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
             become(preprocess_);
@@ -47,7 +48,8 @@ namespace deep_server{
                 return;
             }
             double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed += elapsed;
+            pcaffe_data->time_consumed.preprocess_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
             DEEP_LOG_INFO("preprocess caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
             become(processor_);
@@ -68,7 +70,8 @@ namespace deep_server{
                 return;
             }
             double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed += elapsed;
+            pcaffe_data->time_consumed.postprocess_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
             DEEP_LOG_INFO("postprocess caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
             beg_ = clock_::now();
@@ -77,7 +80,8 @@ namespace deep_server{
                 return;
             }
             elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed += elapsed;
+            //pcaffe_data->time_consumed.postprocess_time += elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
             DEEP_LOG_INFO("process caffe result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
             beg_ = clock_::now();
@@ -87,7 +91,8 @@ namespace deep_server{
                 return;
             }
             elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed += elapsed;
+            pcaffe_data->time_consumed.writeresult_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
             DEEP_LOG_INFO("write result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
             connection_handle handle = data->handle;
@@ -124,7 +129,8 @@ namespace deep_server{
                 return;
             }
             double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed += elapsed;
+            pcaffe_data->time_consumed.jsonparse_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
             DEEP_LOG_INFO("parse json consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
             std::string out = value.get("data", "").asString();
@@ -136,7 +142,8 @@ namespace deep_server{
                 return;
             }
             elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed += elapsed;
+            pcaffe_data->time_consumed.decode_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
             DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
             std::string method = value.get("method", "").asString();
@@ -158,7 +165,8 @@ namespace deep_server{
                     return;
                 }
                 double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-                pcaffe_data->time_consumed += elapsed;
+                pcaffe_data->time_consumed.cvreadimage_time = elapsed;
+                pcaffe_data->time_consumed.whole_time += elapsed;
                 DEEP_LOG_INFO("cv read image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
                 pcaffe_data->handle = handle_;
@@ -216,7 +224,8 @@ namespace deep_server{
                 std::chrono::time_point<clock_> beg_ = clock_::now();
                 caffep.predict(data->input, data->output);
                 double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-                data->time_consumed += elapsed;
+                data->time_consumed.predict_time = elapsed;
+                data->time_consumed.whole_time += elapsed;
                 DEEP_LOG_INFO("caffe predict consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
                 this->send(source, process_atom::value, datapointer);
@@ -293,10 +302,12 @@ namespace deep_server{
     behavior caffe_manager(caffe_manager_s* self) {
         deepconfig& cfg = (deepconfig&)self->system().config();
         if (cfg.gpu.length() > 0) {
-            int gpus = boost::lexical_cast<int>(cfg.gpu);
+            vector<string> s_gpus;
+            boost::split(s_gpus, cfg.gpu, boost::is_any_of(","));
+            int gpus = s_gpus.size();
             if (gpus > 0) {
                 for (auto i = 0; i < gpus; ++i) {
-                    auto proc = self->spawn<caffe_proc>(gpus, i);
+                    auto proc = self->spawn<caffe_proc>(gpus, boost::lexical_cast<int>(s_gpus[i]));
                     self->state.caffe_actors.push_back(proc);
                     self->state.size = self->state.caffe_actors.size();
                 }
