@@ -1,8 +1,24 @@
 
 #include "color.h"
-#include "deep_server.hpp"
+#include "caffe_process.hpp"
+#include "yolo_process.hpp"
 
 namespace deep_server{
+
+    static lib_mode_t g_lib_mode;
+
+    void setlibmode(string mode) {
+        if (mode == "caffe")
+            g_lib_mode = caffe;
+        else if (mode == "yolo")
+            g_lib_mode = yolo;
+        else
+            g_lib_mode = caffe;
+    }
+
+    lib_mode_t getlibmode() {
+        return g_lib_mode;
+    }
 
     // utility function to print an exit message with custom name
     void print_on_exit(const actor& hdl, const std::string& name) {
@@ -11,180 +27,29 @@ namespace deep_server{
         });
     }
 
-    processor::processor(actor_config& cfg,
-        std::string  n, actor s, connection_handle handle, actor cm)
-        : event_based_actor(cfg),
-        name_(std::move(n)), bk(s), handle_(handle), cf_manager(cm){
+    struct base_package{};
+    struct caffe_batch_package : base_package {
+        vector<caffe_data*> sources;
+        std::vector<boost::shared_ptr<caffe::Blob<float> >> input;
+        std::vector<boost::shared_ptr<caffe::Blob<float> >> output;
+    };
 
-        pcaffe_data.reset(new caffe_data());
-        pcaffe_data->time_consumed.whole_time = 0.f;
+    struct yolo_batch_package : base_package {
+        vector<yolo_data*> sources;
+        image* input;
+        cv::Mat output;
 
-        //set_default_handler(skip);
-
-        prepare_.assign(
-            [=](prepare_atom, uint64 datapointer) {
-
-            std::chrono::time_point<clock_> beg_ = clock_::now();
-            if (!FRCNN_API::Frcnn_wrapper::prepare(pcaffe_data->cv_image, pcaffe_data->out_image)) {
-                fault("Fail to prepare image£¡");
-                return;
-            }
-            double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.prepare_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("prepare caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            become(preprocess_);
-            send(this, preprocess_atom::value, datapointer);
-        }
-        );
-
-        preprocess_.assign(
-            [=](preprocess_atom, uint64 datapointer) {
-
-            std::chrono::time_point<clock_> beg_ = clock_::now();
-            if (!FRCNN_API::Frcnn_wrapper::preprocess(pcaffe_data->out_image, pcaffe_data->input)) {
-                fault("Fail to preprocess image£¡");
-                return;
-            }
-            double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.preprocess_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("preprocess caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            become(processor_);
-            send(cf_manager, caffe_manager_process_atom::value, this, datapointer);
-        }
-        );
-
-        processor_.assign(
-            [=](process_atom, uint64 datapointer) {
-
-            DEEP_LOG_INFO(name_ + " starts to process_atom.");
-
-            caffe_data* data = (caffe_data*)datapointer;
-
-            std::chrono::time_point<clock_> beg_ = clock_::now();
-            if (!FRCNN_API::Frcnn_wrapper::postprocess(data->cv_image, data->output, data->results)) {
-                fault("fail to Frcnn_wrapper::postprocess ! ");
-                return;
-            }
-            double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.postprocess_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("postprocess caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            beg_ = clock_::now();
-            if (!cvprocess::process_caffe_result(data->results, data->cv_image)) {
-                fault("fail to cvprocess::process_caffe_result ! ");
-                return;
-            }
-            elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            //pcaffe_data->time_consumed.postprocess_time += elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("process caffe result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            beg_ = clock_::now();
-            vector<unsigned char> odata;
-            if (!cvprocess::writeImage(data->cv_image, odata)) {
-                fault("fail to cvprocess::process_caffe_result ! ");
-                return;
-            }
-            elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.writeresult_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("write result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            connection_handle handle = data->handle;
-
-            become(downloader_);
-            send(this, downloader_atom::value, handle, odata);
-            }
-        );
-        downloader_.assign(
-            [=](downloader_atom, connection_handle handle, vector<unsigned char>& odata) {
-
-            DEEP_LOG_INFO(name_ + " starts to downloader_atom.");
-
-            send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
-            //send(bk, handle_, output_atom::value, odata);
-        }
-        );
-    }
-
-    behavior processor::make_behavior()  {
-        //send(this, input_atom::value);
-        return (
-            [=](input_atom, std::string& data) {
-            DEEP_LOG_INFO(name_ + " starts to input_atom.");
-            //become(uploader_);
-            //send(this, uploader_atom::value);
-
-            Json::Reader reader;
-            Json::Value value;
-        
-            std::chrono::time_point<clock_> beg_ = clock_::now();
-            if (!reader.parse(data, value) || value.isNull() || !value.isObject()) {
-                fault("invalid json");
-                return;
-            }
-            double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.jsonparse_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("parse json consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            std::string out = value.get("data", "").asString();
-            vector<unsigned char> idata;
-            beg_ = clock_::now();
-            idata = base64_decode(out);
-            if (out.length() == 0 || idata.size() == 0) {
-                fault("invalid json property : data.");
-                return;
-            }
-            elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.decode_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            std::string method = value.get("method", "").asString();
-            if (method == "flip") {
-                std::vector<unsigned char> odata;
-                if (!cvprocess::flip(idata, odata)) {
-                    fault("Fail to process pic by " + method + ", please check£¡");
-                    return;
-                }
-
-                become(downloader_);
-                send(this, downloader_atom::value, handle_, odata);
-            }
-            else if (method == "caffe") {
-
-                std::chrono::time_point<clock_> beg_ = clock_::now();
-                if (!cvprocess::readImage(idata, pcaffe_data->cv_image)) {
-                    fault("Fail to read image£¡");
-                    return;
-                }
-                double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-                pcaffe_data->time_consumed.cvreadimage_time = elapsed;
-                pcaffe_data->time_consumed.whole_time += elapsed;
-                DEEP_LOG_INFO("cv read image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-                pcaffe_data->handle = handle_;
-
-                become(prepare_);
-                send(this, prepare_atom::value, (uint64)(uint64*)pcaffe_data.get());
-            }
-            else {
-                fault("invalid method : £¡" + method);
-                return;
+        ~yolo_batch_package() {
+            if (input) {
+            //    delete input;
             }
         }
-        );
-    }
+    };
+
 
     class caffe_proc : public blocking_actor{
     public:
-        caffe_proc(actor_config& cfg, int count, int i) : blocking_actor(cfg), xcfg(cfg), solver_count(count), index(i) {
+        caffe_proc(actor_config& cfg, int count, int i, int bz) : blocking_actor(cfg), xcfg(cfg), solver_count(count), index(i), batch_size(bz) {
         }
 
         void act() override {
@@ -212,23 +77,33 @@ namespace deep_server{
             if (!caffep.init(flags, index)) {
                 DEEP_LOG_ERROR("failed to start caffe !!!!!!!!!!!!!!!!!!!!!!! ");
             }
-            double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
+            double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
             DEEP_LOG_INFO("caffe initialization consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
             bool running = true;
             this->receive_while(running) (
-                [=](const caffe_process_atom, actor& source, uint64 datapointer) {
+                [=](const caffe_process_atom, uint64 datapointer) {
                 DEEP_LOG_INFO("new request to caffe proc " + boost::lexical_cast<string>(index) + " to process data");
-
-                caffe_data* data = (caffe_data*)datapointer;
+                caffe_batch_package *data = (caffe_batch_package*)datapointer;
                 std::chrono::time_point<clock_> beg_ = clock_::now();
                 caffep.predict(data->input, data->output);
-                double elapsed = std::chrono::duration_cast<micro_second_> (clock_::now() - beg_).count();
-                data->time_consumed.predict_time = elapsed;
-                data->time_consumed.whole_time += elapsed;
+                double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
                 DEEP_LOG_INFO("caffe predict consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+                for (int i = 0; i < data->sources.size(); ++i) {
+                    actor& back = data->sources[i]->self;
+                    data->sources[i]->time_consumed.predict_time = elapsed;
+                    data->sources[i]->time_consumed.whole_time += elapsed;
+                    FRCNN_API::Frcnn_wrapper::copySingleBlob(data->output, i, data->sources[i]->output);
 
-                this->send(source, process_atom::value, datapointer);
+                    this->send(back, process_atom::value, (uint64)0);
+                }
+                delete data;
+            },
+            [=](tick_atom, size_t interval) {
+                delayed_send(this, std::chrono::milliseconds{ interval },
+                    tick_atom::value, interval);
+            },
+            [=](vector <std::pair<uint64, uint64> > a) {
             },
             [&](exit_msg& em) {
                 if (em.reason) {
@@ -243,63 +118,169 @@ namespace deep_server{
         caffe_process caffep;
         actor_config xcfg;
         int solver_count;
+        int batch_size;
         int index;
+        vector <std::pair<uint64, uint64> > batch_tasks;
     };
 
-    struct caffe_manager_state {
+    class yolo_proc : public blocking_actor {
+    public:
+        yolo_proc(actor_config& cfg, int count, int i, int bz) : blocking_actor(cfg), xcfg(cfg), solver_count(count), index(i), batch_size(bz) {
+        }
+
+        void act() override {
+            deepconfig& dcfg = (deepconfig&)xcfg.host->system().config();
+
+            std::chrono::time_point<clock_> beg_ = clock_::now();
+            if (!yolop.init(index, dcfg.yolo_cfgfile.c_str(), 
+                dcfg.yolo_weightfile.c_str(), dcfg.yolo_namelist.c_str(), dcfg.yolo_labeldir.c_str(), 
+                dcfg.yolo_thresh, dcfg.yolo_hier_thresh)) {
+                DEEP_LOG_ERROR("failed to start yolo !!!!!!!!!!!!!!!!!!!!!!! ");
+            }
+            double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+            DEEP_LOG_INFO("yolo initialization consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+            bool running = true;
+            this->receive_while(running) (
+                [=](const yolo_process_atom, uint64 datapointer) {
+                DEEP_LOG_INFO("new request to yolo proc " + boost::lexical_cast<string>(index) + " to process data");
+                yolo_batch_package *data = (yolo_batch_package*)datapointer;
+                std::chrono::time_point<clock_> beg_ = clock_::now();
+
+#if defined WIN32 || defined WINCE
+#else
+                yolop.predict(data->input, data->output);
+                yolop.postprocess(*data->input, data->output);
+#endif
+
+                double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                DEEP_LOG_INFO("yolo predict consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+                for (int i = 0; i < data->sources.size(); ++i) {
+                    actor& back = data->sources[i]->self;
+                    data->sources[i]->output = data->output;
+                    data->sources[i]->time_consumed.predict_time = elapsed;
+                    data->sources[i]->time_consumed.whole_time += elapsed;
+
+                    this->send(back, process_atom::value, (uint64)0);
+                }
+                delete data;
+            },
+                [=](tick_atom, size_t interval) {
+                delayed_send(this, std::chrono::milliseconds{ interval },
+                    tick_atom::value, interval);
+            },
+                [=](vector <std::pair<uint64, uint64> > a) {
+            },
+                [&](exit_msg& em) {
+                if (em.reason) {
+                    this->fail_state(std::move(em.reason));
+                    running = false;
+                }
+            }
+            );
+        }
+
+    private:
+        yolo_process yolop;
+        actor_config xcfg;
+        int solver_count;
+        int batch_size;
+        int index;
+        vector <std::pair<uint64, uint64> > batch_tasks;
+    };
+
+    class preprocess_proc : public blocking_actor {
+    public:
+        preprocess_proc(actor_config& cfg, actor cp, int bz) : blocking_actor(cfg), lib_p(cp), batch_size(bz), isprocessing(false){
+        }
+
+        void process(bool force) {
+            if (batch_tasks.size() >= batch_size || force) {
+                int size = batch_size < batch_tasks.size() ? batch_size : batch_tasks.size();
+                if (getlibmode() == yolo) {
+                    yolo_batch_package *p = new yolo_batch_package();
+                    for (int i = 0; i < size; ++i) {
+                        uint64 d = batch_tasks.front();
+                        batch_tasks.pop_front();
+                        yolo_data* data = (yolo_data*)d;
+                        p->sources.push_back(data);
+
+                        //todo , support 1 pic only, need to add the batch function
+                        p->input = &data->input;
+
+                        if (p->sources.size() > 0){
+
+                            this->send(lib_p, yolo_process_atom::value, (uint64)(uint64*)p);
+                        }
+                    }
+                }
+                else {
+                    caffe_batch_package *p = new caffe_batch_package();
+                    vector < cv::Mat > imgs;
+
+                    for (int i = 0; i < size; ++i) {
+                        uint64 d = batch_tasks.front();
+                        batch_tasks.pop_front();
+                        caffe_data* data = (caffe_data*)d;
+                        p->sources.push_back(data);
+                        imgs.push_back(data->out_image);
+                    }
+                    if (p->sources.size() > 0){
+                        //if (!FRCNN_API::Frcnn_wrapper::preprocess(imgs[0], p->input)) {
+                        if (!FRCNN_API::Frcnn_wrapper::batch_preprocess(imgs, p->input)) {
+                        }
+
+                        this->send(lib_p, caffe_process_atom::value, (uint64)(uint64*)p);
+                    }
+                }
+            }
+        }
+
+        void act() override {
+            size_t interval = 300;
+
+            this->delayed_send(this, std::chrono::microseconds{ interval }, tick_atom::value, interval);
+
+            bool running = true;
+            this->receive_while(running) (
+                [=](const lib_preprocess_atom, actor& source, uint64 datapointer, actor& lib_p) {
+                    isprocessing = true;
+                    batch_tasks.push_back(datapointer);
+                    process(false);
+                    delayed_send(this, std::chrono::microseconds{ interval }, tick_atom::value, interval);
+                    isprocessing = false;
+                },
+                [=](tick_atom, size_t interval) {
+                    if (!isprocessing) {
+                        process(true);
+                        delayed_send(this, std::chrono::milliseconds{ interval }, tick_atom::value, interval);
+                    }
+                },
+                [&](exit_msg& em) {
+                    if (em.reason) {
+                        this->fail_state(std::move(em.reason));
+                        running = false;
+                    }
+                }
+            );
+        }
+
+    private:
+        int batch_size;
+        bool isprocessing;
+        actor lib_p;
+        deque <uint64 > batch_tasks;
+    };
+
+    struct deep_manager_state {
         int size;
         int active;
-        vector<actor> caffe_actors;
+        vector<actor> frame_actors;
+        vector<actor> preprocess_actors;
     };
 
-    //class caffe_manager : public blocking_actor {
-    //public:
-    //    caffe_manager(actor_config& cfg) : blocking_actor(cfg) {
-    //        *xcfg = cfg;
-    //    }
-
-    //    void act() override {
-    //        deepconfig& dcfg = (deepconfig&)xcfg->host->system().config();
-    //        int gpus = boost::lexical_cast<int>(dcfg.gpu);
-    //        for (auto i = 0; i < gpus; ++i) {
-    //            auto proc = this->spawn<caffe_proc>();
-    //            this->state.caffe_actors.push_back(proc);
-    //            this->state.size = this->state.caffe_actors.size();
-    //        }
-    //        bool running = true;
-    //        this->receive_while(running) (
-    //            [=](const caffe_manager_process_atom, actor& source, uint64 datapointer) {
-    //                DEEP_LOG_INFO("new request to caffe to process data");
-
-    //                if (this->state.size > 0) {
-    //                    this->send(this->state.caffe_actors[this->state.active], caffe_process_atom::value, source, datapointer);
-
-    //                    ++this->state.active;
-    //                    if (this->state.active >= this->state.size) {
-    //                        this->state.active = 0;
-    //                    }
-    //                }
-    //                else {
-    //                    DEEP_LOG_INFO("invalid request to caffe since there is no caffe instance initialized.!");
-    //                    this->send(source, process_atom::value, datapointer);
-    //                }
-    //            },
-    //            [&](exit_msg& em) {
-    //            if (em.reason) {
-    //                this->fail_state(std::move(em.reason));
-    //                running = false;
-    //            }
-    //        }
-    //        );
-    //    }
-
-    //private:
-    //    actor_config* xcfg;
-    //    caffe_manager_state state;
-    //};
-
-    using caffe_manager_s = caf::stateful_actor<caffe_manager_state>;
-    behavior caffe_manager(caffe_manager_s* self) {
+    using deep_manager_s = caf::stateful_actor<deep_manager_state>;
+    behavior deep_manager(deep_manager_s* self) {
         deepconfig& cfg = (deepconfig&)self->system().config();
         if (cfg.gpu.length() > 0) {
             vector<string> s_gpus;
@@ -307,9 +288,19 @@ namespace deep_server{
             int gpus = s_gpus.size();
             if (gpus > 0) {
                 for (auto i = 0; i < gpus; ++i) {
-                    auto proc = self->spawn<caffe_proc>(gpus, boost::lexical_cast<int>(s_gpus[i]));
-                    self->state.caffe_actors.push_back(proc);
-                    self->state.size = self->state.caffe_actors.size();
+                    actor proc1;
+                    if (getlibmode() == yolo) {
+                        proc1 = self->spawn<yolo_proc>(gpus, boost::lexical_cast<int>(s_gpus[i]), cfg.batch_size);
+                    }
+                    else {
+                        proc1 = self->spawn<caffe_proc>(gpus, boost::lexical_cast<int>(s_gpus[i]), cfg.batch_size);
+                    }
+                    self->state.frame_actors.push_back(proc1);
+
+                    auto proc2 = self->spawn<preprocess_proc>(proc1, cfg.batch_size);
+                    self->state.preprocess_actors.push_back(proc2);
+
+                    self->state.size = self->state.frame_actors.size();
                 }
             }
         }
@@ -321,19 +312,30 @@ namespace deep_server{
             }
             if (cpus > 0) {
                 for (auto i = 0; i < cpus; ++i) {
-                    auto proc = self->spawn<caffe_proc>(1, -1);
-                    self->state.caffe_actors.push_back(proc);
-                    self->state.size = self->state.caffe_actors.size();
+                    actor proc1;
+                    if (getlibmode() == yolo) {
+                        proc1 = self->spawn<yolo_proc>(1, -1, cfg.batch_size);
+                    }
+                    else {
+                        proc1 = self->spawn<caffe_proc>(1, -1, cfg.batch_size);
+                    }
+                    self->state.frame_actors.push_back(proc1);
+
+                    auto proc2 = self->spawn<preprocess_proc>(proc1, cfg.batch_size);
+                    self->state.preprocess_actors.push_back(proc2);
+
+                    self->state.size = self->state.frame_actors.size();
                 }
             }
         }
 
         return{
-            [=](const caffe_manager_process_atom, actor& source, uint64 datapointer) {
+            [=](const deep_manager_process_atom, actor& source, uint64 datapointer) {
             DEEP_LOG_INFO("new request to caffemanager to process data");
 
             if (self->state.size > 0) {
-                self->send(self->state.caffe_actors[self->state.active], caffe_process_atom::value, source, datapointer);
+                self->send(self->state.preprocess_actors[self->state.active], lib_preprocess_atom::value, 
+                    source, datapointer, self->state.frame_actors[self->state.active]);
 
                 ++self->state.active;
                 if (self->state.active >= self->state.size) {
@@ -341,7 +343,7 @@ namespace deep_server{
                 }
             }
             else {
-                DEEP_LOG_INFO("invalid request to caffe since there is no caffe instance initialized.!");
+                DEEP_LOG_INFO("invalid request to caffe since there is no deep lib instance initialized.!");
                 self->send(source, process_atom::value, datapointer);
             }
         }
@@ -408,9 +410,11 @@ namespace deep_server{
         };
         set_sighandler();
 #endif
+        setlibmode(cfg.lib_mode);
+
         information info;
-        auto cf_manager = self->spawn<monitored>(caffe_manager);
-        //auto cf_manager = self->spawn<caffe_manager>();
+        auto cf_manager = self->spawn<monitored>(deep_manager);
+        //auto cf_manager = self->spawn<deep_manager>();
 
         auto server_actor = system.middleman().spawn_server(server, cfg.port, cfg.http_mode, info, cf_manager);
         if (!server_actor) {

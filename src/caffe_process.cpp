@@ -96,4 +96,175 @@ bool caffe_process::postprocess(const cv::Mat &img, vector<boost::shared_ptr<Blo
     return wrapper->postprocess(img, input, output);
 }
 
+namespace deep_server {
+    caffe_processor::caffe_processor(actor_config& cfg,
+        std::string  n, actor s, connection_handle handle, actor cm)
+        : event_based_actor(cfg),
+        name_(std::move(n)), bk(s), handle_(handle), cf_manager(cm) {
 
+        pcaffe_data.reset(new caffe_data());
+        pcaffe_data->time_consumed.whole_time = 0.f;
+        pcaffe_data->self = this;
+        //set_default_handler(skip);
+
+        prepare_.assign(
+            [=](prepare_atom, uint64 datapointer) {
+
+            std::chrono::time_point<clock_> beg_ = clock_::now();
+            if (!FRCNN_API::Frcnn_wrapper::prepare(pcaffe_data->cv_image, pcaffe_data->out_image)) {
+                fault("Fail to prepare image£¡");
+                return;
+            }
+            double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+            pcaffe_data->time_consumed.prepare_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
+            DEEP_LOG_INFO("prepare caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+            become(preprocess_);
+            send(this, preprocess_atom::value, datapointer);
+        }
+        );
+
+        preprocess_.assign(
+            [=](preprocess_atom, uint64 datapointer) {
+
+            //std::chrono::time_point<clock_> beg_ = clock_::now();
+            //if (!FRCNN_API::Frcnn_wrapper::preprocess(pcaffe_data->out_image, pcaffe_data->input)) {
+            //    fault("Fail to preprocess image£¡");
+            //    return;
+            //}
+            //double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+            //pcaffe_data->time_consumed.preprocess_time = elapsed;
+            //pcaffe_data->time_consumed.whole_time += elapsed;
+            //DEEP_LOG_INFO("preprocess caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+            become(processor_);
+            send(cf_manager, deep_manager_process_atom::value, this, datapointer);
+        }
+        );
+
+        processor_.assign(
+            [=](process_atom, uint64 datapointer) {
+
+            DEEP_LOG_INFO(name_ + " starts to process_atom.");
+
+            caffe_data* data = (caffe_data*)pcaffe_data.get();
+
+            std::chrono::time_point<clock_> beg_ = clock_::now();
+            if (!FRCNN_API::Frcnn_wrapper::postprocess(data->cv_image, data->output, data->results)) {
+                fault("fail to Frcnn_wrapper::postprocess ! ");
+                return;
+            }
+            double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+            pcaffe_data->time_consumed.postprocess_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
+            DEEP_LOG_INFO("postprocess caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+            beg_ = clock_::now();
+            if (!cvprocess::process_caffe_result(data->results, data->cv_image)) {
+                fault("fail to cvprocess::process_caffe_result ! ");
+                return;
+            }
+            elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+            //pcaffe_data->time_consumed.postprocess_time += elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
+            DEEP_LOG_INFO("process caffe result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+            beg_ = clock_::now();
+            vector<unsigned char> odata;
+            if (!cvprocess::writeImage(data->cv_image, odata)) {
+                fault("fail to cvprocess::process_caffe_result ! ");
+                return;
+            }
+            elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+            pcaffe_data->time_consumed.writeresult_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
+            DEEP_LOG_INFO("write result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+            connection_handle handle = data->handle;
+
+            become(downloader_);
+            send(this, downloader_atom::value, handle, odata);
+        }
+        );
+        downloader_.assign(
+            [=](downloader_atom, connection_handle handle, vector<unsigned char>& odata) {
+
+            DEEP_LOG_INFO(name_ + " starts to downloader_atom.");
+
+            send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
+            //send(bk, handle_, output_atom::value, odata);
+        }
+        );
+    }
+
+    behavior caffe_processor::make_behavior() {
+        //send(this, input_atom::value);
+        return (
+            [=](input_atom, std::string& data) {
+            DEEP_LOG_INFO(name_ + " starts to input_atom.");
+            //become(uploader_);
+            //send(this, uploader_atom::value);
+
+            Json::Reader reader;
+            Json::Value value;
+
+            std::chrono::time_point<clock_> beg_ = clock_::now();
+            if (!reader.parse(data, value) || value.isNull() || !value.isObject()) {
+                fault("invalid json");
+                return;
+            }
+            double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+            pcaffe_data->time_consumed.jsonparse_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
+            DEEP_LOG_INFO("parse json consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+            std::string out = value.get("data", "").asString();
+            vector<unsigned char> idata;
+            beg_ = clock_::now();
+            idata = base64_decode(out);
+            if (out.length() == 0 || idata.size() == 0) {
+                fault("invalid json property : data.");
+                return;
+            }
+            elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+            pcaffe_data->time_consumed.decode_time = elapsed;
+            pcaffe_data->time_consumed.whole_time += elapsed;
+            DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+            std::string method = value.get("method", "").asString();
+            if (method == "flip") {
+                std::vector<unsigned char> odata;
+                if (!cvprocess::flip(idata, odata)) {
+                    fault("Fail to process pic by " + method + ", please check£¡");
+                    return;
+                }
+
+                become(downloader_);
+                send(this, downloader_atom::value, handle_, odata);
+            }
+            else if (method == "caffe") {
+
+                std::chrono::time_point<clock_> beg_ = clock_::now();
+                if (!cvprocess::readImage(idata, pcaffe_data->cv_image)) {
+                    fault("Fail to read image£¡");
+                    return;
+                }
+                double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                pcaffe_data->time_consumed.cvreadimage_time = elapsed;
+                pcaffe_data->time_consumed.whole_time += elapsed;
+                DEEP_LOG_INFO("cv read image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+                pcaffe_data->handle = handle_;
+
+                become(prepare_);
+                send(this, prepare_atom::value, (uint64)(uint64*)pcaffe_data.get());
+            }
+            else {
+                fault("invalid method : £¡" + method);
+                return;
+            }
+        }
+        );
+    }
+}

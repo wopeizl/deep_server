@@ -4,6 +4,14 @@
 
 namespace deep_server{
 
+    enum lib_mode_t {
+        caffe = 0,
+        yolo
+    };
+
+    void setlibmode(string mode);
+    lib_mode_t getlibmode();
+
     class deepconfig : public actor_system_config {
     public:
         uint16_t port = 12345;
@@ -19,6 +27,14 @@ namespace deep_server{
         string default_c = "";
         string gpu = "";
         string cpu = "";
+        int batch_size = 2;
+        string lib_mode = "caffe";
+        string yolo_cfgfile;
+        string yolo_weightfile;
+        string yolo_namelist;
+        string yolo_labeldir;
+        float yolo_thresh;
+        float yolo_hier_thresh;
 
         deepconfig() {
             opt_group{ custom_options_, "global" }
@@ -31,6 +47,14 @@ namespace deep_server{
                 .add(default_c, "default_c,d", "caffe default_c file")
                 .add(gpu, "gpu,g", "caffe gpu numbers, notes that this option will disable the cpu option")
                 .add(cpu, "cpu,c", "caffe cpu numbers")
+                .add(batch_size, "batch_size,b", "lib process pics batch size numbers")
+                .add(lib_mode, "lib_mode", "supported libraries, for now it is caffe and yolo")
+                .add(yolo_cfgfile, "yolo_cfgfile", "yolo_cfgfile")
+                .add(yolo_weightfile, "yolo_weightfile", "yolo_weightfile")
+                .add(yolo_namelist, "yolo_namelist", "yolo_namelist")
+                .add(yolo_labeldir, "yolo_labeldir", "yolo_labeldir")
+                .add(yolo_thresh, "yolo_thresh", "yolo_thresh")
+                .add(yolo_hier_thresh, "yolo_hier_thresh", "yolo_hier_thresh")
                 .add(http_mode, "http-mode,hm", "enable http mode");
         }
 

@@ -5,6 +5,7 @@ SET(CMAKE_BUILD_TYPE "Debug")
 SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")  
 SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")  
 
+
 project (deep_server)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Window")
@@ -12,6 +13,11 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Window")
 else ()
   set(WSLIB)
 endif()
+
+set(THISDIR ${CMAKE_SOURCE_DIR})
+set(CMKDIR ${THISDIR}/cmake)
+include(${CMKDIR}/cuda.cmake)
+
 
 ################################################################################
 #                                compiler setup                                #
@@ -214,7 +220,7 @@ set(Deep_server_COMPILE_OPTIONS "")
 #list(APPEND Deep_server_LINKER_LIBS PUBLIC ${Boost_LIBRARIES})
 
 # nvcrc flags                                                                                                                                                                                               
-set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-gencode arch=compute_20,code=sm_20)
+#set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-gencode arch=compute_20,code=sm_20)
 if(NOT MINGW)
   set(CAF_ROOT ${DEEP_ROOT}/3rd/actor-framework)
   set(JSONCPP_ROOT ${DEEP_ROOT}/Depends/jsoncpp)
@@ -233,6 +239,7 @@ endif()
 			src/http_parser.cpp
 			src/parserhelper.cpp
 			src/tcp_broker.cpp
+			src/yolo_process.cpp
 	   )
 
 add_executable(deep_server ${DEEP_SRCS})
@@ -280,10 +287,16 @@ if(NOT MINGW)
           "${CAFFE_ROOT}/include"
           "${CAF_ROOT}/libcaf_io"
           "${CAF_ROOT}/libcaf_core"
+          "${DEEP_ROOT}/3rd/auto_yolo/src"
 #          "${Deep_server_INCLUDE_DIRS}"
           )
   
 target_link_libraries(deep_server
+/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcudadevrt.a
+/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcudart.so
+/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcudnn.so
+/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcurand.so
+/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcublas.so
           /lib64/libgflags.so
           "${JSONCPP_ROOT}/lib/libjsoncpp.a"
           /lib64/libopencv_highgui.so
@@ -294,9 +307,10 @@ target_link_libraries(deep_server
           /lib64/libboost_python.so
           /lib64/libpython2.7.so
           #"${CAFFE_ROOT}/lib/libcaffe.so"
-          "${DEEP_ROOT}/3rd/auto_caffe/build/lib/libcaffe.so"
+          "${DEEP_ROOT}/3rd/auto_yolo/lib/libdnl.a"
           "${CAF_ROOT}/build/lib/libcaf_core.so"
           "${CAF_ROOT}/build/lib/libcaf_io.so"
+          "${DEEP_ROOT}/3rd/auto_caffe/build/lib/libcaffe.so"
  #         "${Deep_server_LINKER_LIBS}"
           )
 else()
@@ -312,6 +326,4 @@ else()
           "${PROJECT_SOURCE_DIR}/build/lib/libcaf_io_static.a"
           )
 endif()
-
-
 

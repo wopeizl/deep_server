@@ -1,5 +1,7 @@
 
 #include "deep_server.hpp"
+#include "caffe_process.hpp"
+#include "yolo_process.hpp"
 
 namespace deep_server {
 
@@ -58,7 +60,14 @@ namespace deep_server {
             read_int(msg.buf.data() + sizeof(uint64_t), ival);
             DEEP_LOG_INFO("received {" << to_string(atm) << ", " << ival << "}");
 
-            auto actor_processor = self->spawn<processor>("tcp_processor", self, msg.handle, cf_manager);
+            actor actor_processor;
+            if (getlibmode() == yolo) {
+                actor_processor = self->spawn<yolo_processor>("tcp_processor", self, msg.handle, cf_manager);
+            }
+            else {
+                actor_processor = self->spawn<caffe_processor>("tcp_processor", self, msg.handle, cf_manager);
+            }
+
             self->monitor(actor_processor);
             self->link_to(actor_processor);
             vector<unsigned char> idata;
