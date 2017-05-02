@@ -200,7 +200,8 @@ endif()
 include(cmake/ProtoBuf.cmake)
 
 if(MSVC)
-    set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/ignore:4099")
+    set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/ignore:4819")
+    add_definitions( "/W3 /D_CRT_SECURE_NO_WARNINGS /wd4005 /wd4819 /wd4996 /nologo" )
 endif()
 
 
