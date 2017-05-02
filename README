@@ -1,1 +1,6 @@
+caffe mode:
+./deep_server --port=12345 -hm -l deep.log  --lib_mode=caffe --batch_size=2 --gpu=0,2 --caffe_weights=../data/VGG16_faster_rcnn_final.caffemodel --caffe_default_c=../data/voc_config.json --caffe_model=../data/test.prototxt 
+
+yolo mode:
+./deep_server --port=12345 -hm -l deep.log  --lib_mode=yolo --gpu=0 --yolo_cfgfile=../3rd/auto_yolo/cfg/yolo.cfg --yolo_weightfile=../3rd/auto_yolo/cfg/yolo.weights --yolo_namelist=../3rd/auto_yolo/data/coco.names --yolo_labeldir=../3rd/auto_yolo/data/labels --yolo_thresh=0.24 --yolo_hier_thresh=0.5
 
