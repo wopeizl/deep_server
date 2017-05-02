@@ -22,9 +22,9 @@ namespace deep_server{
         string sys_log_filename = "";
         uint64_t sys_log_level = trace_log_lvl_atom::uint_value();
         bool pb_log_level = true;
-        string model = "";
-        string weights = "";
-        string default_c = "";
+        string caffe_model = "";
+        string caffe_weights = "";
+        string caffe_default_c = "";
         string gpu = "";
         string cpu = "";
         int batch_size = 2;
@@ -42,9 +42,9 @@ namespace deep_server{
                 .add(host, "host,H", "set host (ignored in server mode)")
                 .add(server_mode, "server-mode,s", "enable server mode")
                 .add(sys_log_filename, "sys-log,l", "system log file")
-                .add(model, "caffe_model", "caffe model file")
-                .add(weights, "caffe_weights", "caffe weights file")
-                .add(default_c, "caffe_default_c", "caffe default_c file")
+                .add(caffe_model, "caffe_model", "caffe model file")
+                .add(caffe_weights, "caffe_weights", "caffe weights file")
+                .add(caffe_default_c, "caffe_default_c", "caffe default_c file")
                 .add(gpu, "gpu,g", "gpu numbers, notes that this option will disable the cpu option")
                 .add(cpu, "cpu,c", "cpu numbers")
                 .add(batch_size, "batch_size,b", "lib process pics batch size numbers")

@@ -57,11 +57,11 @@ namespace deep_server{
             deepconfig& dcfg = (deepconfig&)xcfg.host->system().config();
             flags.push_back("");
             flags.push_back("--model");
-            flags.push_back(dcfg.model);
+            flags.push_back(dcfg.caffe_model);
             flags.push_back("--weights");
-            flags.push_back(dcfg.weights);
+            flags.push_back(dcfg.caffe_weights);
             flags.push_back("--default_c");
-            flags.push_back(dcfg.default_c);
+            flags.push_back(dcfg.caffe_default_c);
             if (index >= 0) {
                 flags.push_back("--gpu");
                 flags.push_back(boost::lexical_cast<string, int>(index));
@@ -93,8 +93,12 @@ namespace deep_server{
                     actor& back = data->sources[i]->self;
                     data->sources[i]->time_consumed.predict_time = elapsed;
                     data->sources[i]->time_consumed.whole_time += elapsed;
-                    FRCNN_API::Frcnn_wrapper::copySingleBlob(data->output, i, data->sources[i]->output);
-
+                    if (batch_size == 1) {
+                        data->sources[i]->output = data->output;
+                    }
+                    else {
+                        FRCNN_API::Frcnn_wrapper::copySingleBlob(data->output, i, data->sources[i]->output);
+                    }
                     this->send(back, process_atom::value, (uint64)0);
                 }
                 delete data;
@@ -226,8 +230,14 @@ namespace deep_server{
                         imgs.push_back(data->out_image);
                     }
                     if (p->sources.size() > 0){
-                        //if (!FRCNN_API::Frcnn_wrapper::preprocess(imgs[0], p->input)) {
-                        if (!FRCNN_API::Frcnn_wrapper::batch_preprocess(imgs, p->input)) {
+                        if (batch_size == 1) {
+                            // one pic no need to do the batch mode
+                            if (!FRCNN_API::Frcnn_wrapper::preprocess(imgs[0], p->input)) {
+                            }
+                        }
+                        else {
+                            if (!FRCNN_API::Frcnn_wrapper::batch_preprocess(imgs, p->input)) {
+                            }
                         }
 
                         this->send(lib_p, caffe_process_atom::value, (uint64)(uint64*)p);

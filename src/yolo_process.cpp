@@ -58,7 +58,7 @@ bool yolo_process::postprocess(image im, cv::Mat &output) {
         im.data[i + im.w*im.h * 2] = swap;
     }
 
-    output = cv::Mat(im.h, im.w, CV_8U3C);
+    output = cv::Mat(im.h, im.w, CV_8UC3);
 
     int step = output.step;
     for (y = 0; y < im.h; ++y) {

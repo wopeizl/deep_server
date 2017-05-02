@@ -63,7 +63,7 @@ namespace deep_server {
     public:
 
         ~yolo_processor() {
-            DEEP_LOG_INFO("Whole time to process this image : " + boost::lexical_cast<string>(pyolo_data->time_consumed.whole_time) + " ms!");
+            DEEP_LOG_INFO("Whole time for yolo to process this image : " + boost::lexical_cast<string>(pyolo_data->time_consumed.whole_time) + " ms!");
             DEEP_LOG_INFO("Time details  : "
                 + boost::lexical_cast<string>(pyolo_data->time_consumed.jsonparse_time) + ","
                 + boost::lexical_cast<string>(pyolo_data->time_consumed.decode_time) + ","
