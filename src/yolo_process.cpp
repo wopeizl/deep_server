@@ -40,10 +40,7 @@ bool yolo_process::prepare(const cv::Mat &img, image* output) {
 
     rgbgr_image(im);
 
-    //image out = resize_image(im, 0, 0);
-    //free_image(im);
     *output = im;
-    //*output = letterbox_image(out, w, h);
 
     return true;
 }
@@ -153,7 +150,6 @@ namespace deep_server {
             }
 
             send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
-            //send(bk, handle_, output_atom::value, odata);
         }
         );
     }

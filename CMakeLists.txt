@@ -1,329 +1,168 @@
-
-#This part is used for compile faster_rcnn_demo.cpp
-cmake_minimum_required (VERSION 2.8)
-SET(CMAKE_BUILD_TYPE "Debug")  
-SET(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g2 -ggdb")  
-SET(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")  
-
-
-project (deep_server)
-
-if(${CMAKE_SYSTEM_NAME} MATCHES "Window")
-  set(WSLIB -lws2_32)
-else ()
-  set(WSLIB)
+cmake_minimum_required(VERSION 2.8.7)
+if(MSVC)
+    # CMake 3.4 introduced a WINDOWS_EXPORT_ALL_SYMBOLS target property that makes it possible to
+    # build shared libraries without using the usual declspec() decoration.
+    # See: https://blog.kitware.com/create-dlls-on-windows-without-declspec-using-new-cmake-export-all-feature/
+    # and https://cmake.org/cmake/help/v3.5/prop_tgt/WINDOWS_EXPORT_ALL_SYMBOLS.html
+    # for details.
+    cmake_minimum_required(VERSION 3.4)
+endif()
+if(POLICY CMP0046)
+    cmake_policy(SET CMP0046 NEW)
+endif()
+if(POLICY CMP0054)
+    cmake_policy(SET CMP0054 NEW)
 endif()
 
-set(THISDIR ${CMAKE_SOURCE_DIR})
-set(CMKDIR ${THISDIR}/cmake)
-include(${CMKDIR}/cuda.cmake)
+# ---[ deep_server project
+project(deep_server C CXX)
 
+set(DEEP_SRCS src/utils.cpp
+    src/actorlogger.cpp
+    src/base64.cpp
+    src/caffe_process.cpp
+    src/cv_process.cpp
+    src/deep_server.cpp
+    src/http_broker.cpp
+    src/http_parser.cpp
+    src/parserhelper.cpp
+    src/tcp_broker.cpp
+    src/yolo_process.cpp
+    )
 
-################################################################################
-#                                compiler setup                                #
-################################################################################
+add_executable(deep_server ${DEEP_SRCS}) 
 
-# check for g++ >= 4.8 or clang++ > = 3.2
-if(NOT WIN32 AND NOT CAF_NO_COMPILER_CHECK)
-  try_run(ProgramResult
-          CompilationSucceeded
-          "${CMAKE_CURRENT_BINARY_DIR}"
-          "${CMAKE_CURRENT_SOURCE_DIR}/cmake/get_compiler_version.cpp"
-          RUN_OUTPUT_VARIABLE CompilerVersion)
-  if(NOT CompilationSucceeded OR NOT ProgramResult EQUAL 0)
-    message(FATAL_ERROR "Cannot determine compiler version")
-  elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-    if(CompilerVersion VERSION_GREATER 4.7)
-      message(STATUS "Found g++ version ${CompilerVersion}")
-    else()
-      message(FATAL_ERROR "g++ >= 4.8 required (found: ${CompilerVersion})")
-    endif()
-  elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    if(CompilerVersion VERSION_GREATER 3.1)
-      message(STATUS "Found clang++ version ${CompilerVersion}")
-    else()
-      message(FATAL_ERROR "clang++ >= 3.2 required (found: ${CompilerVersion})")
-    endif()
-  else()
-    message(FATAL_ERROR "Your C++ compiler does not support C++11 "
-                        "or is not supported")
-  endif()
-endif()
-# set optional build flags
-set(EXTRA_FLAGS "")
-# increase max. template depth on GCC and Clang
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"
-   OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  set(EXTRA_FLAGS "-ftemplate-depth=512 -ftemplate-backtrace-limit=0")
-endif()
-# add "-Werror" flag if --pedantic-build is used
-if(CAF_CXX_WARNINGS_AS_ERRORS)
-  set(EXTRA_FLAGS "${EXTRA_FLAGS} -Werror")
-endif()
-# set compiler flags for GCOV if requested
-if(CAF_ENABLE_GCOV)
-  if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    set(NO_INLINE "-fno-inline")
-  else()
-    set(NO_INLINE "-fno-inline -fno-inline-small-functions -fno-default-inline")
-  endif()
-  set(EXTRA_FLAGS "${EXTRA_FLAGS} -fprofile-arcs -ftest-coverage ${NO_INLINE}")
-endif()
-# set -fno-exception if requested
-if(CAF_FORCE_NO_EXCEPTIONS)
-  set(EXTRA_FLAGS "${EXTRA_FLAGS} -fno-exceptions")
-endif()
-# enable a ton of warnings if --more-clang-warnings is used
-if(CAF_MORE_WARNINGS)
-  if("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    set(WFLAGS "-Weverything -Wno-c++98-compat -Wno-padded "
-               "-Wno-documentation-unknown-command -Wno-exit-time-destructors "
-               "-Wno-global-constructors -Wno-missing-prototypes "
-               "-Wno-c++98-compat-pedantic -Wno-unused-member-function "
-               "-Wno-unused-const-variable -Wno-switch-enum "
-               "-Wno-missing-noreturn -Wno-covered-switch-default")
-  elseif("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-    set(WFLAGS "-Waddress -Wall -Warray-bounds "
-               "-Wattributes -Wbuiltin-macro-redefined -Wcast-align "
-               "-Wcast-qual -Wchar-subscripts -Wclobbered -Wcomment "
-               "-Wconversion -Wconversion-null -Wcoverage-mismatch "
-               "-Wcpp -Wdelete-non-virtual-dtor -Wdeprecated "
-               "-Wdeprecated-declarations -Wdiv-by-zero -Wdouble-promotion "
-               "-Wempty-body -Wendif-labels -Wenum-compare -Wextra "
-               "-Wfloat-equal -Wformat -Wfree-nonheap-object "
-               "-Wignored-qualifiers -Winit-self "
-               "-Winline -Wint-to-pointer-cast -Winvalid-memory-model "
-               "-Winvalid-offsetof -Wlogical-op -Wmain -Wmaybe-uninitialized "
-               "-Wmissing-braces -Wmissing-field-initializers -Wmultichar "
-               "-Wnarrowing -Wnoexcept -Wnon-template-friend "
-               "-Wnon-virtual-dtor -Wnonnull -Woverflow "
-               "-Woverlength-strings -Wparentheses "
-               "-Wpmf-conversions -Wpointer-arith -Wreorder "
-               "-Wreturn-type -Wsequence-point -Wshadow "
-               "-Wsign-compare -Wswitch -Wtype-limits -Wundef "
-               "-Wuninitialized -Wunused -Wvla -Wwrite-strings")
-  endif()
-  # convert CMake list to a single string, erasing the ";" separators
-  string(REPLACE ";" "" WFLAGS_STR ${WFLAGS})
-  set(EXTRA_FLAGS "${EXTRA_FLAGS} ${WFLAGS_STR}")
-endif()
-# add -stdlib=libc++ when using Clang if possible
-if(NOT CAF_NO_AUTO_LIBCPP AND "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-  set(CXXFLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
-  set(CMAKE_CXX_FLAGS "-std=c++11 -stdlib=libc++")
-  try_run(ProgramResult
-          CompilationSucceeded
-          "${CMAKE_CURRENT_BINARY_DIR}"
-          "${CMAKE_CURRENT_SOURCE_DIR}/cmake/get_compiler_version.cpp"
-          RUN_OUTPUT_VARIABLE CompilerVersion)
-  if(NOT CompilationSucceeded OR NOT ProgramResult EQUAL 0)
-    message(STATUS "Use clang with GCC' libstdc++")
-  else()
-    message(STATUS "Automatically added '-stdlib=libc++' flag "
-                   "(CAF_NO_AUTO_LIBCPP not defined)")
-    set(EXTRA_FLAGS "${EXTRA_FLAGS} -stdlib=libc++")
-  endif()
-  # restore CXX flags
-  set(CMAKE_CXX_FLAGS "${CXXFLAGS_BACKUP}")
-endif()
-# enable address sanitizer if requested by the user
-if(CAF_ENABLE_ADDRESS_SANITIZER)
-  # check whether address sanitizer is available
-  set(CXXFLAGS_BACKUP "${CMAKE_CXX_FLAGS}")
-  set(CMAKE_CXX_FLAGS "-fsanitize=address -fno-omit-frame-pointer")
-  try_run(ProgramResult
-          CompilationSucceeded
-          "${CMAKE_CURRENT_BINARY_DIR}"
-          "${CMAKE_CURRENT_SOURCE_DIR}/cmake/get_compiler_version.cpp")
-  if(NOT CompilationSucceeded)
-    message(WARNING "Address Sanitizer is not available on selected compiler")
-  else()
-    message(STATUS "Enable Address Sanitizer")
-    set(EXTRA_FLAGS "${EXTRA_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
-  endif()
-  # restore CXX flags
-  set(CMAKE_CXX_FLAGS "${CXXFLAGS_BACKUP}")
-endif(CAF_ENABLE_ADDRESS_SANITIZER)
-# -pthread is ignored on MacOSX but required on other platforms
-if(NOT APPLE AND NOT WIN32)
-  set(EXTRA_FLAGS "${EXTRA_FLAGS} -pthread")
-endif()
-# -fPIC generates warnings on MinGW and Cygwin plus extra setup steps needed on MinGW
-if(MINGW)
-  add_definitions(-D_WIN32_WINNT=0x0600)
-  add_definitions(-DWIN32)
-  include(GenerateExportHeader)
-  set(LD_FLAGS "ws2_32 -liphlpapi")
-  # build static to avoid runtime dependencies to GCC libraries
-  set(EXTRA_FLAGS "${EXTRA_FLAGS} -static")
-elseif(CYGWIN)
-  set(EXTRA_FLAGS "${EXTRA_FLAGS} -U__STRICT_ANSI__")
-else()
-  set(EXTRA_FLAGS "${EXTRA_FLAGS} -fPIC")
-endif()
-if (WIN32)
-  set(LD_FLAGS ${LD_FLAGS} ws2_32 iphlpapi)
-endif()
-# iOS support
-if(CAF_OSX_SYSROOT)
-  set(CMAKE_OSX_SYSROOT "${CAF_OSX_SYSROOT}")
-endif()
-if(CAF_IOS_DEPLOYMENT_TARGET)
-  if("${CAF_OSX_SYSROOT}" STREQUAL "iphonesimulator")
-    set(EXTRA_FLAGS "${EXTRA_FLAGS} -mios-simulator-version-min=${CAF_IOS_DEPLOYMENT_TARGET}")
-  else()
-    set(EXTRA_FLAGS "${EXTRA_FLAGS} -miphoneos-version-min=${CAF_IOS_DEPLOYMENT_TARGET}")
-  endif()
-endif()
-# check if the user provided CXXFLAGS, set defaults otherwise
-if(NOT CMAKE_CXX_FLAGS)
-  set(CMAKE_CXX_FLAGS                   "-std=c++11 -Wextra -Wall -pedantic ${EXTRA_FLAGS}")
-endif()
-if(NOT CMAKE_CXX_FLAGS_DEBUG)
-  set(CMAKE_CXX_FLAGS_DEBUG             "-O0 -g")
-endif()
-if(NOT CMAKE_CXX_FLAGS_MINSIZEREL)
-  set(CMAKE_CXX_FLAGS_MINSIZEREL        "-Os")
-endif()
-if(NOT CMAKE_CXX_FLAGS_RELEASE)
-  set(CMAKE_CXX_FLAGS_RELEASE           "-O3 -DNDEBUG")
-endif()
-if(NOT CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-  set(CMAKE_CXX_FLAGS_RELWITHDEBINFO    "-O2 -g")
-endif()
-# set build default build type to RelWithDebInfo if not set
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE RelWithDebInfo)
-endif()
-# needed by subprojects
-set(LD_FLAGS ${LD_FLAGS} ${CMAKE_LD_LIBS})
+# ---[ deep_server version
+set(DEEP_TARGET_VERSION "1.0.0-rc5" CACHE STRING "Deep logical version")
+set(DEEP_TARGET_SOVERSION "1.0.0-rc5" CACHE STRING "Deep soname version")
+add_definitions(-DDEEP_VERSION=${DEEP_TARGET_VERSION} -DGLOG_NO_ABBREVIATED_SEVERITIES)
 
-
+# ---[ Using cmake scripts and modules
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 
-#include(cmake/Utils.cmake)
-#include(cmake/Cuda.cmake)
-# packages                                                                                                                                                                                                 
-find_package(CUDA)
+include(cmake/CompilerCheck.cmake)
+include(cmake/Utils.cmake)
+include(cmake/Summary.cmake)
+include(cmake/ConfigGen.cmake)
 
-set(DEEP_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
-
-set(Deep_server_LINKER_LIBS "")
-set(Deep_server_INCLUDE_DIRS "")
-set(Deep_server_DEFINITIONS "")
-set(Deep_server_COMPILE_OPTIONS "")
-
-# ---[ Boost
-#find_package(Boost 1.46 REQUIRED COMPONENTS system thread filesystem)
-#list(APPEND Deep_server_INCLUDE_DIRS PUBLIC ${Boost_INCLUDE_DIRS})
-#list(APPEND Deep_server_DEFINITIONS PUBLIC -DBOOST_ALL_NO_LIB)
-#list(APPEND Deep_server_LINKER_LIBS PUBLIC ${Boost_LIBRARIES})
-
-# nvcrc flags                                                                                                                                                                                               
-#set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-gencode arch=compute_20,code=sm_20)
-if(NOT MINGW)
-  set(CAF_ROOT ${DEEP_ROOT}/3rd/actor-framework)
-  set(JSONCPP_ROOT ${DEEP_ROOT}/Depends/jsoncpp)
-  set(CAFFE_ROOT ${DEEP_ROOT}/Depends/caffe)
+if(MSVC)
+    deep_option(CPU_ONLY  "Build deep with CUDA support" ON) 
+    deep_option(USE_CUDA  "Build deep without CUDA support" OFF) 
+    add_definitions(-DCPU_ONLY -DBOOST_ALL_NO_LIB)
 else()
-  set(CAF_ROOT d:/work/deep_server/3rd/actor-framework)
+    deep_option(CPU_ONLY  "Build deep without CUDA support" OFF)
+    deep_option(USE_CUDA  "Build deep with CUDA support" ON) 
+endif()
+deep_option(USE_CUDNN "Build deep with cuDNN library support" ON IF NOT CPU_ONLY)
+deep_option(USE_OPENCV "Build with OpenCV support" ON)
+deep_option(USE_OPENMP "Link with OpenMP (when your BLAS wants OpenMP and you get linker errors)" OFF)
+deep_option(USE_NCCL "Build deep with NCCL library support" OFF)
+
+include(cmake/Cuda.cmake)
+include("cmake/External/glog.cmake")
+    include_directories(${GLOG_INCLUDE_DIRS})
+    target_link_libraries(deep_server ${GLOG_LIBRARIES} )
+
+# ---[ Google-gflags
+include("cmake/External/gflags.cmake")
+    include_directories(${GFLAGS_INCLUDE_DIRS})
+    target_link_libraries(deep_server ${GFLAGS_LIBRARIES} )
+
+# ---[ Flags
+if(UNIX OR APPLE)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall")
 endif()
 
-	set(DEEP_SRCS src/utils.cpp
-			src/actorlogger.cpp
-			src/base64.cpp
-			src/caffe_process.cpp
-			src/cv_process.cpp
-			src/deep_server.cpp
-			src/http_broker.cpp
-			src/http_parser.cpp
-			src/parserhelper.cpp
-			src/tcp_broker.cpp
-			src/yolo_process.cpp
-	   )
-
-add_executable(deep_server ${DEEP_SRCS})
-
-if(${CMAKE_SYSTEM_NAME} MATCHES "Window")
-  set(WSLIB -lws2_32)
-else ()
-  set(WSLIB)
+if(USE_libstdcpp)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libstdc++")
+    message("-- Warning: forcing libstdc++ (controlled by USE_libstdcpp option in cmake)")
 endif()
 
-target_link_libraries(deep_server
-        ${LD_FLAGS}
-        ${CAF_LIBRARIES}
-        ${PTHREAD_LIBRARIES}
-        ${WSLIB})
+# ---[ Warnings
+deep_warnings_disable(CMAKE_CXX_FLAGS -Wno-sign-compare -Wno-uninitialized)
+
+# ---[ Includes
+#set(Deep_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
+set(deep_server_SRC_DIR ${PROJECT_SOURCE_DIR}/src)
+include_directories(${PROJECT_BINARY_DIR})
+
+if(MSVC)
+    include("c:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/caffe-builder-config.cmake")
+endif()
+
+if(MSVC)
+    include_directories("d:/work/caffe-windows/caffe/include/")
+    include_directories("d:/work/caffe-windows/caffe/build/include/")
+    include_directories("d:/work/deep_server/3rd/actor-framework/libcaf_io/")
+    include_directories("d:/work/deep_server/3rd/actor-framework/libcaf_core/")
+    include_directories("d:/work/deep_server/3rd/jsoncpp-master/include/")
+    include_directories("d:/work/auto_yolo/src/")
+    link_directories("d:/work/deep_server/3rd/jsoncpp-master/build/src/lib_json/${CMAKE_BUILD_TYPE}/")
+    link_directories("d:/work/deep_server/3rd/actor-framework/build/lib/${CMAKE_BUILD_TYPE}/")
+
+    target_link_libraries(deep_server
+        "d:/work/deep_server/3rd/actor-framework/build64/lib/Debug/caf_core_static.lib"
+        "d:/work/deep_server/3rd/actor-framework/build64/lib/Debug/caf_io_static.lib"
+        "d:/work/caffe-windows/caffe/build/lib/Debug/caffe-d.lib"
+        "d:/work/deep_server/3rd/jsoncpp-master/build/src/lib_json/Debug/jsoncpp.lib"
+        ws2_32
+        )
+else()
+    include_directories("${PROJECT_SOURCE_DIR}/3rd/auto_caffe/include/")
+    include_directories("${PROJECT_SOURCE_DIR}/3rd/auto_caffe/build/include/")
+    include_directories("${PROJECT_SOURCE_DIR}/3rd/actor-framework/libcaf_io/")
+    include_directories("${PROJECT_SOURCE_DIR}/3rd/actor-framework/libcaf_core/")
+    include_directories("${PROJECT_SOURCE_DIR}/3rd/jsoncpp/include/")
+    include_directories("${PROJECT_SOURCE_DIR}/3rd/auto_yolo/src/")
+    include_directories (
+        /usr/local/include
+        /usr/include
+        /usr/include/openblas
+        /usr/include/python2.7
+        /usr/local/cuda/include
+        )
+    link_directories("${PROJECT_SOURCE_DIR}/3rd/jsoncpp-master/build/src/lib_json/")
+    link_directories("${PROJECT_SOURCE_DIR}/3rd/actor-framework/build/lib/")
+    set(CMAKE_LIBRARY_PATH ${CMAKE_LIBRARY_PATH} 
+        "/usr/local/lib"
+        "/usr/local/lib64")
+
+    target_link_libraries(deep_server
+        "${PROJECT_SOURCE_DIR}/3rd/actor-framework/build/lib/libcaf_core.so"
+        "${PROJECT_SOURCE_DIR}/3rd/actor-framework/build/lib/libcaf_io.so"
+        "${PROJECT_SOURCE_DIR}/3rd/auto_caffe/build/lib/libcaffe.so"
+        "${PROJECT_SOURCE_DIR}/3rd/jsoncpp/build/src/lib_json/libjsoncpp.a"
+        "${PROJECT_SOURCE_DIR}/3rd/auto_yolo/lib/libdnl.a"
+        #/lib64/libgflags.so
+        #/usr/lib64/libglog.so
+        )
+endif()
+ 
 
 # boost support
-  set(Boost_USE_MULTITHREADED ON)
-  find_package(Boost COMPONENTS system filesystem)
-  if(Boost_FOUND)
+set(Boost_USE_MULTITHREADED ON)
+find_package(Boost COMPONENTS system filesystem date_time)
+if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
-    set(LD_DIRS ${LD_DIRS} ${Boost_LIBRARIES})
-    set(LD_FLAGS ${LD_FLAGS} ${Boost_SYSTEM_LIBRARY}  ${Boost_FILESYSTEM_LIBRARY}) 
-  endif()
+    target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
+endif() 
 
-#opencv support
-  find_package(OpenCV QUIET COMPONENTS core highgui imgproc imgcodecs)
-  if(NOT OpenCV_FOUND) # if not OpenCV 3.x, then imgcodecs are not found
+find_package(OpenCV QUIET COMPONENTS core highgui imgproc imgcodecs)
+if(NOT OpenCV_FOUND) # if not OpenCV 3.x, then imgcodecs are not found
     find_package(OpenCV REQUIRED COMPONENTS core highgui imgproc)
-  endif()
-  list(APPEND Deep_server_INCLUDE_DIRS ${OpenCV_INCLUDE_DIRS})
-  list(APPEND Deep_server_LINKER_LIBS ${OpenCV_LIBS})
-  message(STATUS "OpenCV found (${OpenCV_CONFIG_PATH})")
-  list(APPEND Deep_server_DEFINITIONS -DUSE_OPENCV)
-
-if(NOT MINGW)
-  include_directories ( "${PROJECT_SOURCE_DIR}include"
-          "${PROJECT_SOURCE_DIR}/src"
-          /usr/local/include
-          /usr/include
-          /usr/include/openblas
-          /usr/include/python2.7
-          /usr/local/cuda/include
-          "${JSONCPP_ROOT}/include"
-          "${CAFFE_ROOT}/include"
-          "${CAF_ROOT}/libcaf_io"
-          "${CAF_ROOT}/libcaf_core"
-          "${DEEP_ROOT}/3rd/auto_yolo/src"
-#          "${Deep_server_INCLUDE_DIRS}"
-          )
-  
-target_link_libraries(deep_server
-/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcudadevrt.a
-/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcudart.so
-/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcudnn.so
-/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcurand.so
-/usr/local/cuda-8.0/targets/x86_64-linux/lib/libcublas.so
-          /lib64/libgflags.so
-          "${JSONCPP_ROOT}/lib/libjsoncpp.a"
-          /lib64/libopencv_highgui.so
-          /lib64/libopencv_core.so
-          /lib64/libopencv_imgproc.so
-          /lib64/libglog.so
-          /lib64/libboost_system.so
-          /lib64/libboost_python.so
-          /lib64/libpython2.7.so
-          #"${CAFFE_ROOT}/lib/libcaffe.so"
-          "${DEEP_ROOT}/3rd/auto_yolo/lib/libdnl.a"
-          "${CAF_ROOT}/build/lib/libcaf_core.so"
-          "${CAF_ROOT}/build/lib/libcaf_io.so"
-          "${DEEP_ROOT}/3rd/auto_caffe/build/lib/libcaffe.so"
- #         "${Deep_server_LINKER_LIBS}"
-          )
-else()
-
-  include_directories ( "${PROJECT_SOURCE_DIR}/include"
-          "${PROJECT_SOURCE_DIR}/src"
-          "${CAF_ROOT}/libcaf_io"
-          "${CAF_ROOT}/libcaf_core"
-          )
-
-  target_link_libraries(deep_server
-          "${PROJECT_SOURCE_DIR}/build/lib/libcaf_core_static.a"
-          "${PROJECT_SOURCE_DIR}/build/lib/libcaf_io_static.a"
-          )
 endif()
+if(OpenCV_FOUND)
+    include_directories(${OpenCV_INCLUDE_DIRS})
+    target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
+endif() 
+
+include(cmake/ProtoBuf.cmake)
+
+if(MSVC)
+    set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/ignore:4099")
+endif()
+
+
+# ---[ Configuration summary
+deep_print_configuration_summary()
 
