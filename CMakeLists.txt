@@ -60,13 +60,13 @@ deep_option(USE_NCCL "Build deep with NCCL library support" OFF)
 
 include(cmake/Cuda.cmake)
 include("cmake/External/glog.cmake")
-    include_directories(${GLOG_INCLUDE_DIRS})
-    target_link_libraries(deep_server ${GLOG_LIBRARIES} )
+include_directories(${GLOG_INCLUDE_DIRS})
+target_link_libraries(deep_server ${GLOG_LIBRARIES} )
 
 # ---[ Google-gflags
 include("cmake/External/gflags.cmake")
-    include_directories(${GFLAGS_INCLUDE_DIRS})
-    target_link_libraries(deep_server ${GFLAGS_LIBRARIES} )
+include_directories(${GFLAGS_INCLUDE_DIRS})
+target_link_libraries(deep_server ${GFLAGS_LIBRARIES} )
 
 # ---[ Flags
 if(UNIX OR APPLE)
@@ -106,6 +106,47 @@ if(MSVC)
         "d:/work/caffe-windows/caffe/build/lib/Debug/caffe-d.lib"
         "d:/work/deep_server/3rd/jsoncpp-master/build/src/lib_json/Debug/jsoncpp.lib"
         ws2_32
+        kernel32.lib
+        user32.lib
+        gdi32.lib
+        winspool.lib
+        shell32.lib
+        ole32.lib
+        oleaut32.lib
+        uuid.lib
+        comdlg32.lib
+        advapi32.lib
+        ws2_32.lib
+        iphlpapi.lib
+        d:/work/caffe-windows/caffe/build/lib/Debug/caffe-d.lib
+        d:/work/caffe-windows/caffe/build/lib/Debug/proto-d.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/boost_system-vc140-mt-gd-1_61.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/boost_thread-vc140-mt-gd-1_61.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/boost_filesystem-vc140-mt-gd-1_61.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/boost_chrono-vc140-mt-gd-1_61.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/boost_date_time-vc140-mt-gd-1_61.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/boost_atomic-vc140-mt-gd-1_61.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/glogd.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/Lib/gflagsd.lib
+        shlwapi.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/libprotobufd.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/caffehdf5_hl_D.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/caffehdf5_D.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/cmake/../lib/caffezlibd.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/lmdbd.lib
+        ntdll.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/leveldbd.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/cmake/../lib/boost_date_time-vc140-mt-gd-1_61.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/cmake/../lib/boost_filesystem-vc140-mt-gd-1_61.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/cmake/../lib/boost_system-vc140-mt-gd-1_61.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/snappy_staticd.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/caffezlibd.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/x64/vc14/lib/opencv_highgui310d.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/x64/vc14/lib/opencv_videoio310d.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/x64/vc14/lib/opencv_imgcodecs310d.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/x64/vc14/lib/opencv_imgproc310d.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/x64/vc14/lib/opencv_core310d.lib
+        C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/libopenblas.dll.a
         )
 else()
     include_directories("${PROJECT_SOURCE_DIR}/3rd/auto_caffe/include/")
@@ -137,7 +178,7 @@ else()
         #/usr/lib64/libglog.so
         )
 endif()
- 
+
 
 # boost support
 set(Boost_USE_MULTITHREADED ON)
