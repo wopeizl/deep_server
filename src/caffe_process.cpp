@@ -102,6 +102,9 @@ namespace deep_server {
         : event_based_actor(cfg),
         name_(std::move(n)), bk(s), handle_(handle), cf_manager(cm) {
 
+        deepconfig& dcfg = (deepconfig&)cfg.host->system().config();
+        http_mode = dcfg.http_mode;
+
         pcaffe_data.reset(new caffe_data());
         pcaffe_data->time_consumed.whole_time = 0.f;
         pcaffe_data->self = this;
@@ -192,8 +195,14 @@ namespace deep_server {
 
             DEEP_LOG_INFO(name_ + " starts to downloader_atom.");
 
-            send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
-            //send(bk, handle_, output_atom::value, odata);
+            if (http_mode) {
+                send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
+            }
+            else {
+                //org::libcppa::output_m output;
+                //output.set_imgdata(odata.data(), odata.size());
+                send(bk, output_atom::value, odata);
+            }
         }
         );
     }
@@ -203,9 +212,7 @@ namespace deep_server {
         return (
             [=](input_atom, std::string& data) {
             DEEP_LOG_INFO(name_ + " starts to input_atom.");
-            //become(uploader_);
-            //send(this, uploader_atom::value);
-
+            
             Json::Reader reader;
             Json::Value value;
 
@@ -264,7 +271,27 @@ namespace deep_server {
                 fault("invalid method : £¡" + method);
                 return;
             }
-        }
+        },
+            [=](input_atom, int dataType, vector<unsigned char> idata) {
+                pcaffe_data->handle = handle_;
+
+                    if (dataType == org::libcppa::dataType::CV_IMAGE) {
+                        pcaffe_data->cv_image = *(cv::Mat*)idata.data();
+                    }
+                    else if (dataType == org::libcppa::dataType::PNG) {
+                        if (!cvprocess::readImage(idata, pcaffe_data->cv_image)) {
+                            fault("Fail to read image£¡");
+                            return;
+                        }
+                    }
+                    else {
+                        fault("invalid data type : £¡" + dataType);
+                        return;
+                    }
+
+                    become(prepare_);
+                    send(this, prepare_atom::value, (uint64)(uint64*)pcaffe_data.get());
+            }
         );
     }
 }

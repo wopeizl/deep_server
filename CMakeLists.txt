@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 2.8.7)
+set( CMAKE_VERBOSE_MAKEFILE off )
 if(MSVC)
     # CMake 3.4 introduced a WINDOWS_EXPORT_ALL_SYMBOLS target property that makes it possible to
     # build shared libraries without using the usual declspec() decoration.
@@ -61,12 +62,12 @@ deep_option(USE_NCCL "Build deep with NCCL library support" OFF)
 include(cmake/Cuda.cmake)
 include("cmake/External/glog.cmake")
 include_directories(${GLOG_INCLUDE_DIRS})
-target_link_libraries(deep_server ${GLOG_LIBRARIES} )
+target_link_libraries(${PROJECT_NAME} ${GLOG_LIBRARIES} )
 
 # ---[ Google-gflags
 include("cmake/External/gflags.cmake")
 include_directories(${GFLAGS_INCLUDE_DIRS})
-target_link_libraries(deep_server ${GFLAGS_LIBRARIES} )
+target_link_libraries(${PROJECT_NAME} ${GFLAGS_LIBRARIES} )
 
 # ---[ Flags
 if(UNIX OR APPLE)
@@ -87,6 +88,7 @@ set(deep_server_SRC_DIR ${PROJECT_SOURCE_DIR}/src)
 include_directories(${PROJECT_BINARY_DIR})
 
 if(MSVC)
+    #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "c:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/")
     include("c:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/caffe-builder-config.cmake")
 endif()
 
@@ -100,7 +102,7 @@ if(MSVC)
     link_directories("d:/work/deep_server/3rd/jsoncpp-master/build/src/lib_json/${CMAKE_BUILD_TYPE}/")
     link_directories("d:/work/deep_server/3rd/actor-framework/build/lib/${CMAKE_BUILD_TYPE}/")
 
-    target_link_libraries(deep_server
+    target_link_libraries(${PROJECT_NAME}
         "d:/work/deep_server/3rd/actor-framework/build64/lib/Debug/caf_core_static.lib"
         "d:/work/deep_server/3rd/actor-framework/build64/lib/Debug/caf_io_static.lib"
         "d:/work/caffe-windows/caffe/build/lib/Debug/caffe-d.lib"
@@ -168,12 +170,12 @@ else()
         "/usr/local/lib"
         "/usr/local/lib64")
 
-    target_link_libraries(deep_server
+    target_link_libraries(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/3rd/actor-framework/build/lib/libcaf_core.so"
         "${PROJECT_SOURCE_DIR}/3rd/actor-framework/build/lib/libcaf_io.so"
         "${PROJECT_SOURCE_DIR}/3rd/auto_caffe/build/lib/libcaffe.so"
         "${PROJECT_SOURCE_DIR}/3rd/jsoncpp/build/src/lib_json/libjsoncpp.a"
-        "${PROJECT_SOURCE_DIR}/3rd/auto_yolo/lib/libdnl.a"
+        "${PROJECT_SOURCE_DIR}/3rd/auto_yolo/lib/libdnl.so"
         #/lib64/libgflags.so
         #/usr/lib64/libglog.so
         )
@@ -198,6 +200,27 @@ if(OpenCV_FOUND)
 endif() 
 
 include(cmake/ProtoBuf.cmake)
+
+set(proto_gen_folder "${PROJECT_BINARY_DIR}/include/proto")
+file(GLOB proto_files src/proto/*.proto)
+deep_protobuf_generate_cpp_py(${proto_gen_folder} proto_srcs proto_hdrs proto_python ${proto_files})
+
+# include python files either to force generation
+add_library(deep_proto STATIC ${proto_hdrs} ${proto_srcs} ${proto_python})
+#deep_default_properties(deep_proto)
+target_link_libraries(deep_proto PUBLIC ${PROTOBUF_LIBRARIES})
+target_include_directories(deep_proto PUBLIC ${PROTOBUF_INCLUDE_DIR})
+
+#list(INSERT Caffe_LINKER_LIBS 0 PUBLIC deep_proto) # note, crucial to prepend!
+include_directories(${PROTOBUF_INCLUDE_DIR} "${PROJECT_BINARY_DIR}/include/proto")
+target_link_libraries(${PROJECT_NAME} 
+    PUBLIC deep_proto)
+
+if(MSVC)
+    #execute_process(COMMAND ${CMAKE_COMMAND} -E copy ${proto_python} "d:/work/python/opencv/deep_pb2.py")
+    configure_file(${proto_python} "d:/work/python/opencv/deep_pb2.py" COPYONLY)
+    configure_file(${proto_python} "d:/work/python/deep_learning/deep_pb2.py" COPYONLY)
+endif()
 
 if(MSVC)
     set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "/ignore:4819")

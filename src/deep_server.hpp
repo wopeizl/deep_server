@@ -13,6 +13,7 @@
 #include "json/json.h"
 #include "cv_process.hpp"
 #include <chrono>
+#include "deep.pb.h"
 
 typedef std::chrono::high_resolution_clock clock_;
 typedef std::chrono::duration<double, std::ratio<1, 1000> > mill_second_;
@@ -143,7 +144,7 @@ constexpr size_t cstr_size(const char(&)[Size]) {
 namespace deep_server{
     using http_broker = caf::stateful_actor<http_state, broker>;
     behavior http_worker(http_broker* self, connection_handle hdl, actor cf_manager);
-    behavior tcp_broker(broker* self, connection_handle hdl, actor cf_manager);
+    void tcp_broker(broker* self, connection_handle hdl, actor cf_manager);
 
     struct time_consume{
         double whole_time;

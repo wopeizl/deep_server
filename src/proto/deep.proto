@@ -1,0 +1,45 @@
+package org.libcppa; 
+
+message input_pack {
+    optional int32 size = 1;
+    optional input_m data = 2;
+}
+
+message output_pack {
+    optional int32 size = 1;
+    optional output_m data = 2;
+}
+
+enum dataType {
+    PNG = 0;
+    CV_IMAGE = 1;
+}
+
+message input_m {
+    optional string version = 1;
+    enum methodType {
+        CV_FLIP = 0;
+        CAFFE = 1;
+        YOLO = 2;
+    }
+    optional methodType method = 2 [default = CAFFE];
+    optional dataType dataT = 3 [default = CV_IMAGE];
+    optional bytes imgdata = 4;
+}
+
+enum Status {
+    OK = 0;
+    INVALID = 1;
+    WRONG_METHOD = 2;
+    WRONG_DATATYPE = 3;
+    TOO_BIG_DATA = 4;
+    SEVER_FAIL = 5;
+}
+
+message output_m {
+    optional Status status = 1;
+    optional string msg = 2;
+    optional string version = 3;
+    optional dataType dataT = 4 [default = PNG];
+    optional bytes imgdata = 5;
+}

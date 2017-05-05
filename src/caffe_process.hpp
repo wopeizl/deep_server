@@ -80,5 +80,6 @@ namespace deep_server {
         behavior    downloader_;
         behavior    processor_;
         std::unique_ptr<caffe_data> pcaffe_data;
+        bool http_mode;
     };
 }

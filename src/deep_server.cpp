@@ -74,9 +74,9 @@ namespace deep_server{
             flags.push_back(boost::lexical_cast<string, int>(solver_count));
 
             std::chrono::time_point<clock_> beg_ = clock_::now();
-            if (!caffep.init(flags, index)) {
-                DEEP_LOG_ERROR("failed to start caffe !!!!!!!!!!!!!!!!!!!!!!! ");
-            }
+            //if (!caffep.init(flags, index)) {
+            //    DEEP_LOG_ERROR("failed to start caffe !!!!!!!!!!!!!!!!!!!!!!! ");
+            //}
             double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
             DEEP_LOG_INFO("caffe initialization consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
