@@ -36,11 +36,10 @@ namespace deep_server {
         storage = first | (static_cast<uint64_t>(second) << sizeof(uint32_t));
     }
 
-    // implemenation of our broker
-    void tcp_broker(broker* self, connection_handle hdl, actor cf_manager) {
+    //// implemenation of our broker
+    void tcp_worker(broker* self, connection_handle hdl, actor cf_manager) {
         self->set_down_handler([=](down_msg& dm) {
-            self->quit(exit_reason::remote_link_unreachable);
-            return;
+            self->quit();
         });
 
         auto write = [=](const org::libcppa::output_m& p) {
@@ -51,17 +50,18 @@ namespace deep_server {
             self->flush(hdl);
         };
         message_handler default_bhvr = {
-            [=](const connection_closed_msg&) {
+            [=](const connection_closed_msg& msg) {
             DEEP_LOG_INFO("connection closed");
-            //self->send_exit(buddy, exit_reason::remote_link_unreachable);
-            self->quit(exit_reason::remote_link_unreachable);
+
+            if (msg.handle == hdl) {
+                self->quit();
+            }
             return;
         },
-            [=](connection_handle& handle, fault_atom, std::string reason) {
+        [=](connection_handle& handle, fault_atom, std::string reason) {
             DEEP_LOG_INFO("fault happened !!!! reason : " + reason);
 
             self->quit();
-            return;
         },
         //    [=](connection_handle& handle, output_atom, org::libcppa::output_m& data) {
         //    string buf = data.SerializeAsString();
@@ -74,9 +74,10 @@ namespace deep_server {
         //    self->quit();
         //},
             [=](connection_handle& handle, output_atom, vector<unsigned char>& odata) {
-            org::libcppa::output_m p;
-            p.set_imgdata(odata.data(), odata.size());
-            write(p);
+            org::libcppa::output_m op;
+            op.set_status(org::libcppa::Status::OK);
+            op.set_imgdata(odata.data(), odata.size());
+            write(op);
         }
         };
         auto await_protobuf_data = message_handler{
@@ -85,8 +86,6 @@ namespace deep_server {
             p.ParseFromArray(msg.buf.data(), static_cast<int>(msg.buf.size()));
 
             if (p.has_method() && p.has_imgdata()) {
-                actor actor_processor;
-
                 if (p.method() == org::libcppa::input_m::CV_FLIP) {
                     std::vector<unsigned char> odata;
                     vector<unsigned char> idata(p.imgdata().size());
@@ -97,13 +96,16 @@ namespace deep_server {
                         op.set_status(org::libcppa::Status::SEVER_FAIL);
                     }
                     else {
+                        op.set_status(org::libcppa::Status::OK);
+                        op.set_datat(org::libcppa::PNG);
                         op.set_imgdata(odata.data(), odata.size());
                     }
-
+                    int a = odata.size();
                     write(op);
                 }
                 else if ((p.method() == org::libcppa::input_m::CAFFE && getlibmode() == caffe)
                     ||(p.method() == org::libcppa::input_m::YOLO && getlibmode() == yolo)) {
+                    actor actor_processor;
                     vector<unsigned char> idata(p.imgdata().size());
                     std::memcpy(idata.data(), (char*)p.imgdata().data(), p.imgdata().size());
                     if (getlibmode() == yolo) {
@@ -146,18 +148,18 @@ namespace deep_server {
                 p.set_msg("too large pic");
                 write(p);
 
-                self->quit(exit_reason::user_shutdown);
-                return;
+                self->quit();
             }
-            // receive protobuf data
-            auto nb = static_cast<size_t>(num_bytes);
-            self->configure_read(hdl, receive_policy::exactly(nb));
-            self->become(keep_behavior, await_protobuf_data);
+            else {
+                // receive protobuf data
+                auto nb = static_cast<size_t>(num_bytes);
+                self->configure_read(hdl, receive_policy::exactly(nb));
+                self->become(keep_behavior, await_protobuf_data);
+            }
         }
         }.or_else(default_bhvr);
         // initial setup
         self->configure_read(hdl, receive_policy::exactly(sizeof(uint32_t)));
         self->become(await_length_prefix);
     }
-
 }

@@ -382,7 +382,7 @@ namespace deep_server{
                     [=](const new_connection_msg& msg) {
                         DEEP_LOG_INFO("server accepted new connection");
 
-                        auto impl = self->fork(tcp_broker, msg.handle, cf_manager);
+                        auto impl = self->fork(tcp_worker, msg.handle, cf_manager);
 
                         self->monitor(impl);
                         self->link_to(impl);

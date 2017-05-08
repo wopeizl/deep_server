@@ -24,7 +24,8 @@ message input_m {
     }
     optional methodType method = 2 [default = CAFFE];
     optional dataType dataT = 3 [default = CV_IMAGE];
-    optional bytes imgdata = 4;
+    optional dataType res_dataT = 4 [default = PNG];
+    optional bytes imgdata = 5;
 }
 
 enum Status {

@@ -73,6 +73,20 @@ bool caffe_process::init(vector<string>& flags, int gpu_id) {
     std::string proto_file = FLAGS_model.c_str();
     std::string model_file = FLAGS_weights.c_str();
     std::string config_file = FLAGS_default_c.c_str();
+
+    if (!boost::filesystem::exists(proto_file)) {
+        DEEP_LOG_ERROR("File : " + proto_file + " Not existed ! ");
+        return false;
+    }
+    if (!boost::filesystem::exists(model_file)) {
+        DEEP_LOG_ERROR("File : " + model_file + " Not existed ! ");
+        return false;
+    }
+    if (!boost::filesystem::exists(config_file)) {
+        DEEP_LOG_ERROR("File : " + config_file + " Not existed ! ");
+        return false;
+    }
+
     const int max_per_image = FLAGS_max_per_image;
 
     wrapper = new FRCNN_API::Frcnn_wrapper(proto_file, model_file, config_file);
@@ -209,89 +223,93 @@ namespace deep_server {
 
     behavior caffe_processor::make_behavior() {
         //send(this, input_atom::value);
-        return (
-            [=](input_atom, std::string& data) {
-            DEEP_LOG_INFO(name_ + " starts to input_atom.");
-            
-            Json::Reader reader;
-            Json::Value value;
+        if (http_mode) {
+            return (
+                [=](input_atom, std::string& data) {
+                DEEP_LOG_INFO(name_ + " starts to input_atom.");
 
-            std::chrono::time_point<clock_> beg_ = clock_::now();
-            if (!reader.parse(data, value) || value.isNull() || !value.isObject()) {
-                fault("invalid json");
-                return;
-            }
-            double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.jsonparse_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("parse json consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            std::string out = value.get("data", "").asString();
-            vector<unsigned char> idata;
-            beg_ = clock_::now();
-            idata = base64_decode(out);
-            if (out.length() == 0 || idata.size() == 0) {
-                fault("invalid json property : data.");
-                return;
-            }
-            elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.decode_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            std::string method = value.get("method", "").asString();
-            if (method == "flip") {
-                std::vector<unsigned char> odata;
-                if (!cvprocess::flip(idata, odata)) {
-                    fault("Fail to process pic by " + method + ", please check£¡");
-                    return;
-                }
-
-                become(downloader_);
-                send(this, downloader_atom::value, handle_, odata);
-            }
-            else if (method == "caffe") {
+                Json::Reader reader;
+                Json::Value value;
 
                 std::chrono::time_point<clock_> beg_ = clock_::now();
-                if (!cvprocess::readImage(idata, pcaffe_data->cv_image)) {
-                    fault("Fail to read image£¡");
+                if (!reader.parse(data, value) || value.isNull() || !value.isObject()) {
+                    fault("invalid json");
                     return;
                 }
                 double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-                pcaffe_data->time_consumed.cvreadimage_time = elapsed;
+                pcaffe_data->time_consumed.jsonparse_time = elapsed;
                 pcaffe_data->time_consumed.whole_time += elapsed;
-                DEEP_LOG_INFO("cv read image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+                DEEP_LOG_INFO("parse json consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
+                std::string out = value.get("data", "").asString();
+                vector<unsigned char> idata;
+                beg_ = clock_::now();
+                idata = base64_decode(out);
+                if (out.length() == 0 || idata.size() == 0) {
+                    fault("invalid json property : data.");
+                    return;
+                }
+                elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                pcaffe_data->time_consumed.decode_time = elapsed;
+                pcaffe_data->time_consumed.whole_time += elapsed;
+                DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+                std::string method = value.get("method", "").asString();
+                if (method == "flip") {
+                    std::vector<unsigned char> odata;
+                    if (!cvprocess::flip(idata, odata)) {
+                        fault("Fail to process pic by " + method + ", please check£¡");
+                        return;
+                    }
+
+                    become(downloader_);
+                    send(this, downloader_atom::value, handle_, odata);
+                }
+                else if (method == "caffe") {
+
+                    std::chrono::time_point<clock_> beg_ = clock_::now();
+                    if (!cvprocess::readImage(idata, pcaffe_data->cv_image)) {
+                        fault("Fail to read image£¡");
+                        return;
+                    }
+                    double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                    pcaffe_data->time_consumed.cvreadimage_time = elapsed;
+                    pcaffe_data->time_consumed.whole_time += elapsed;
+                    DEEP_LOG_INFO("cv read image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+                    pcaffe_data->handle = handle_;
+
+                    become(prepare_);
+                    send(this, prepare_atom::value, (uint64)(uint64*)pcaffe_data.get());
+                }
+                else {
+                    fault("invalid method : £¡" + method);
+                    return;
+                }
+            });
+        }
+        else {
+            return ([=](input_atom, int dataType, vector<unsigned char> idata) {
                 pcaffe_data->handle = handle_;
+
+                if (dataType == org::libcppa::dataType::CV_IMAGE) {
+                    pcaffe_data->cv_image = *(cv::Mat*)idata.data();
+                }
+                else if (dataType == org::libcppa::dataType::PNG) {
+                    if (!cvprocess::readImage(idata, pcaffe_data->cv_image)) {
+                        fault("Fail to read image£¡");
+                        return;
+                    }
+                }
+                else {
+                    fault("invalid data type : £¡" + dataType);
+                    return;
+                }
 
                 become(prepare_);
                 send(this, prepare_atom::value, (uint64)(uint64*)pcaffe_data.get());
             }
-            else {
-                fault("invalid method : £¡" + method);
-                return;
-            }
-        },
-            [=](input_atom, int dataType, vector<unsigned char> idata) {
-                pcaffe_data->handle = handle_;
-
-                    if (dataType == org::libcppa::dataType::CV_IMAGE) {
-                        pcaffe_data->cv_image = *(cv::Mat*)idata.data();
-                    }
-                    else if (dataType == org::libcppa::dataType::PNG) {
-                        if (!cvprocess::readImage(idata, pcaffe_data->cv_image)) {
-                            fault("Fail to read image£¡");
-                            return;
-                        }
-                    }
-                    else {
-                        fault("invalid data type : £¡" + dataType);
-                        return;
-                    }
-
-                    become(prepare_);
-                    send(this, prepare_atom::value, (uint64)(uint64*)pcaffe_data.get());
-            }
-        );
+            );
+        }
     }
 }

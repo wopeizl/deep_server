@@ -8,6 +8,19 @@ bool yolo_process::init(int gpu_id, const char *cfgfile
     , float thresh
     , float hier_thresh) {
 
+    if (!boost::filesystem::exists(cfgfile)) {
+        DEEP_LOG_ERROR("File : " + string(cfgfile) + " Not existed ! ");
+        return false;
+    }
+    if (!boost::filesystem::exists(weightfile)) {
+        DEEP_LOG_ERROR("File : " + string(weightfile) + " Not existed ! ");
+        return false;
+    }
+    if (!boost::filesystem::exists(namelist)) {
+        DEEP_LOG_ERROR("File : " + string(namelist) + " Not existed ! ");
+        return false;
+    }
+
 #if defined WIN32 || defined WINCE
 #else
 

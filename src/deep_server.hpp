@@ -114,6 +114,69 @@ struct http_state {
     httpanalyzer analyzer;
 };
 
+struct tcp_state {
+
+    enum tcp_s{
+        INIT=0,
+        WAIT_BODY,
+        DONE
+    };
+
+    tcp_state(abstract_broker* self) : self_(self), c_state(INIT){
+        // nop
+    }
+
+    ~tcp_state() {
+        //aout(self_) << "http worker is destroyed" << endl;
+    }
+
+    bool isDone() {
+        return c_state == DONE;
+    }
+
+    size_t parse(char *buf, size_t len)
+    {
+        if (c_state == INIT) {
+            if (len >= sizeof(uint32_t)) {
+                int num_bytes;
+                memcpy(&num_bytes, buf, sizeof(uint32_t));
+                c_len = ntohl(num_bytes);
+                if (num_bytes > (100 * 1024 * 1024)) {
+                    DEEP_LOG_ERROR("someone is trying something nasty");
+                    return -1;
+                }
+                else {
+                    c_state = WAIT_BODY;
+                    c_buf = new unsigned char[c_len];
+                    c_offset = 0;
+                }
+                len -= sizeof(uint32_t);
+                buf += sizeof(uint32_t);
+            }
+        }
+        if (c_state == WAIT_BODY) {
+            memcpy(c_buf + c_offset, buf, len > c_len ? c_len : len);
+            c_offset += len > c_len ? c_len : len;
+            if (c_offset >= c_len) {
+                c_state = DONE;
+            }
+        }
+        return 0;
+    }
+
+    void reset() {
+        //assert(c_state == DONE);
+        c_state = INIT;
+    }
+
+    abstract_broker* self_;
+    tcp_s c_state;
+    int c_len;
+    unsigned char* c_buf;
+    int c_offset;
+};
+
+
 using input_atom = atom_constant<atom("dinput")>;
 using output_atom = atom_constant<atom("doutput")>;
 using framesync_atom = atom_constant<atom("dframesync")>;
@@ -144,7 +207,9 @@ constexpr size_t cstr_size(const char(&)[Size]) {
 namespace deep_server{
     using http_broker = caf::stateful_actor<http_state, broker>;
     behavior http_worker(http_broker* self, connection_handle hdl, actor cf_manager);
-    void tcp_broker(broker* self, connection_handle hdl, actor cf_manager);
+    void tcp_worker(broker* self, connection_handle hdl, actor cf_manager);
+    //using tcp_broker = caf::stateful_actor<tcp_state, broker>;
+    //behavior tcp_worker(tcp_broker* self, connection_handle hdl, actor cf_manager);
 
     struct time_consume{
         double whole_time;
