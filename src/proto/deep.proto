@@ -13,19 +13,26 @@ message output_pack {
 enum dataType {
     PNG = 0;
     CV_IMAGE = 1;
+    CV_POST_PNG = 3;
+    CV_POST_IMAGE = 4;
+    FRCNN_RESULT = 5;
+    YOLO_RESULT = 6;
+    INVALID_OUTDATA = 7;
 }
 
 message input_m {
-    optional string version = 1;
+    optional int32 cid = 1;
+    optional string version = 2;
     enum methodType {
         CV_FLIP = 0;
         CAFFE = 1;
         YOLO = 2;
     }
-    optional methodType method = 2 [default = CAFFE];
-    optional dataType dataT = 3 [default = CV_IMAGE];
-    optional dataType res_dataT = 4 [default = PNG];
-    optional bytes imgdata = 5;
+    optional methodType method = 3 [default = CAFFE];
+    optional dataType dataT = 4 [default = CV_IMAGE];
+    optional dataType res_dataT = 5 [default = PNG];
+    optional bytes imgdata = 6;
+    optional string callback = 7;
 }
 
 enum Status {
@@ -38,9 +45,11 @@ enum Status {
 }
 
 message output_m {
-    optional Status status = 1;
-    optional string msg = 2;
-    optional string version = 3;
-    optional dataType dataT = 4 [default = PNG];
-    optional bytes imgdata = 5;
+    optional int32 cid = 1;
+    optional Status status = 2;
+    optional string msg = 3;
+    optional string version = 4;
+    optional dataType dataT = 5 [default = PNG];
+    optional bytes imgdata = 6;
+    optional string callback = 7;
 }

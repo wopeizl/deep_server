@@ -6,7 +6,7 @@
 namespace deep_server{
 
     string generateHttpbody(string &body) {
-        string head1 = "Access-Control-Allow-Origin: *\r\n";
+        string head1 = "\r\nAccess-Control-Allow-Origin: *\r\n";
         string head2 = "Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept\r\n";
         string head3 = "Access-Control-Allow-Methods: POST,GET,OPTIONS\r\n";
         string content = head1 + head2 + head3 + string("content-length: ") + boost::lexical_cast<string>(body.size()) + "\r\n\r\n";

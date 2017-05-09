@@ -21,18 +21,10 @@ bool yolo_process::init(int gpu_id, const char *cfgfile
         return false;
     }
 
-#if defined WIN32 || defined WINCE
-#else
-
     yolo_init_net(gpu_id, cfgfile, weightfile, namelist, labeldir, thresh, hier_thresh);
-
-#endif
 
     return true;
 }
-
-#if defined WIN32 || defined WINCE
-#else
 
 bool yolo_process::prepare(const cv::Mat &img, image* output) {
     unsigned char *data = (unsigned char *)img.data;
@@ -91,7 +83,6 @@ bool yolo_process::predict(image* input, cv::Mat& output) {
 
     return true;
 }
-#endif
 
 namespace deep_server {
 
@@ -99,6 +90,8 @@ namespace deep_server {
         std::string  n, actor s, connection_handle handle, actor cm)
         : event_based_actor(cfg),
         name_(std::move(n)), bk(s), handle_(handle), cf_manager(cm) {
+        deepconfig& dcfg = (deepconfig&)cfg.host->system().config();
+        http_mode = dcfg.http_mode;
 
         pyolo_data.reset(new yolo_data());
         pyolo_data->time_consumed.whole_time = 0.f;
@@ -110,13 +103,10 @@ namespace deep_server {
 
             std::chrono::time_point<clock_> beg_ = clock_::now();
 
-#if defined WIN32 || defined WINCE
-#else
             if (!yolo_process::prepare(pyolo_data->cv_image, &pyolo_data->input)) {
                 fault("Fail to prepare image£¡");
                 return;
             }
-#endif
 
             double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
             pyolo_data->time_consumed.prepare_time = elapsed;
@@ -131,7 +121,6 @@ namespace deep_server {
         preprocess_.assign(
             [=](preprocess_atom, uint64 datapointer) {
 
-
             become(processor_);
             send(cf_manager, deep_manager_process_atom::value, this, datapointer);
         }
@@ -143,7 +132,6 @@ namespace deep_server {
             DEEP_LOG_INFO(name_ + " starts to process_atom.");
 
             yolo_data* data = (yolo_data*)pyolo_data.get();
-
 
             connection_handle handle = data->handle;
 
@@ -162,61 +150,106 @@ namespace deep_server {
                 return;
             }
 
-            send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
+            // yolo will output the processed png all the time
+            pyolo_data->resDataType = org::libcppa::CV_POST_PNG;
+
+            if (http_mode) {
+                send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
+            }
+            else {
+                send(bk, handle, output_atom::value, pyolo_data->resDataType, odata);
+            }
         }
         );
     }
 
     behavior yolo_processor::make_behavior() {
-        //send(this, input_atom::value);
-        return (
-            [=](input_atom, std::string& data) {
-            DEEP_LOG_INFO(name_ + " starts to input_atom.");
-            //become(uploader_);
-            //send(this, uploader_atom::value);
+        if (http_mode) {
+            return (
+                [=](input_atom, std::string& data) {
+                DEEP_LOG_INFO(name_ + " starts to input_atom.");
+                //become(uploader_);
+                //send(this, uploader_atom::value);
 
-            Json::Reader reader;
-            Json::Value value;
-
-            std::chrono::time_point<clock_> beg_ = clock_::now();
-            if (!reader.parse(data, value) || value.isNull() || !value.isObject()) {
-                fault("invalid json");
-                return;
-            }
-            double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-            pyolo_data->time_consumed.jsonparse_time = elapsed;
-            pyolo_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("parse json consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            std::string out = value.get("data", "").asString();
-            vector<unsigned char> idata;
-            beg_ = clock_::now();
-            idata = base64_decode(out);
-            if (out.length() == 0 || idata.size() == 0) {
-                fault("invalid json property : data.");
-                return;
-            }
-            elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-            pyolo_data->time_consumed.decode_time = elapsed;
-            pyolo_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            std::string method = value.get("method", "").asString();
-            if (method == "flip") {
-                std::vector<unsigned char> odata;
-                if (!cvprocess::flip(idata, odata)) {
-                    fault("Fail to process pic by " + method + ", please check£¡");
-                    return;
-                }
-
-                become(downloader_);
-                send(this, downloader_atom::value, handle_, odata);
-            }
-            else if (method == "yolo") {
+                Json::Reader reader;
+                Json::Value value;
 
                 std::chrono::time_point<clock_> beg_ = clock_::now();
-                if (!cvprocess::readImage(idata, pyolo_data->cv_image)) {
-                    fault("Fail to read image£¡");
+                if (!reader.parse(data, value) || value.isNull() || !value.isObject()) {
+                    fault("invalid json");
+                    return;
+                }
+                double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                pyolo_data->time_consumed.jsonparse_time = elapsed;
+                pyolo_data->time_consumed.whole_time += elapsed;
+                DEEP_LOG_INFO("parse json consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+                std::string out = value.get("data", "").asString();
+                vector<unsigned char> idata;
+                beg_ = clock_::now();
+                idata = base64_decode(out);
+                if (out.length() == 0 || idata.size() == 0) {
+                    fault("invalid json property : data.");
+                    return;
+                }
+                elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                pyolo_data->time_consumed.decode_time = elapsed;
+                pyolo_data->time_consumed.whole_time += elapsed;
+                DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+                std::string method = value.get("method", "").asString();
+                if (method == "flip") {
+                    std::vector<unsigned char> odata;
+                    if (!cvprocess::flip(idata, odata)) {
+                        fault("Fail to process pic by " + method + ", please check£¡");
+                        return;
+                    }
+
+                    become(downloader_);
+                    send(this, downloader_atom::value, handle_, odata);
+                }
+                else if (method == "yolo") {
+
+                    std::chrono::time_point<clock_> beg_ = clock_::now();
+                    if (!cvprocess::readImage(idata, pyolo_data->cv_image)) {
+                        fault("Fail to read image£¡");
+                        return;
+                    }
+
+                    double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                    pyolo_data->time_consumed.cvreadimage_time = elapsed;
+                    pyolo_data->time_consumed.whole_time += elapsed;
+                    DEEP_LOG_INFO("cv read image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+                    pyolo_data->handle = handle_;
+
+                    become(prepare_);
+                    send(this, prepare_atom::value, (uint64)(uint64*)pyolo_data.get());
+                }
+                else {
+                    fault("invalid method : £¡" + method);
+                    return;
+                }
+            });
+        }
+        else {
+            return ([=](input_atom, int dataType, int resDataType, vector<unsigned char> idata) {
+                pyolo_data->handle = handle_;
+                pyolo_data->resDataType = resDataType;
+
+                std::chrono::time_point<clock_> beg_ = clock_::now();
+
+                if (dataType == org::libcppa::dataType::PNG) {
+                    if (!cvprocess::readImage(idata, pyolo_data->cv_image)) {
+                        fault("Fail to read image£¡");
+                        return;
+                    }
+                }
+                else if (dataType == org::libcppa::dataType::CV_IMAGE) {
+                    pyolo_data->cv_image = *(cv::Mat*)idata.data();
+                }
+                else {
+                    fault("invalid data type : £¡" + dataType);
                     return;
                 }
 
@@ -225,16 +258,11 @@ namespace deep_server {
                 pyolo_data->time_consumed.whole_time += elapsed;
                 DEEP_LOG_INFO("cv read image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
-                pyolo_data->handle = handle_;
-
                 become(prepare_);
                 send(this, prepare_atom::value, (uint64)(uint64*)pyolo_data.get());
             }
-            else {
-                fault("invalid method : £¡" + method);
-                return;
-            }
+            );
+
         }
-        );
     }
 }

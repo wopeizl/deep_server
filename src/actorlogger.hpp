@@ -27,7 +27,7 @@ namespace deep_server{
         string caffe_default_c = "";
         string gpu = "";
         string cpu = "";
-        int batch_size = 2;
+        int batch_size = 1;
         string lib_mode = "caffe";
         string yolo_cfgfile;
         string yolo_weightfile;

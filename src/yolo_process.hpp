@@ -7,10 +7,7 @@ extern "C" {
 #endif
 
 #include "image.h"
-#if defined WIN32 || defined WINCE
-#else
 #include "yolo_wrapper.h"
-#endif
 
 #ifdef __cplusplus
 }
@@ -28,13 +25,10 @@ public:
         , float hier_thresh
     );
 
-#if defined WIN32 || defined WINCE
-#else
 
     static bool prepare(const cv::Mat &img, image* output);
 
     bool predict(image* input, cv::Mat& output);
-#endif
 
     static bool postprocess(image input, cv::Mat &output);
 
@@ -52,7 +46,7 @@ namespace deep_server {
     struct yolo_data {
         actor self;
         cv::Mat cv_image;
-
+        int resDataType;
         image input;
         cv::Mat output;
         connection_handle handle;
@@ -101,5 +95,6 @@ namespace deep_server {
         behavior    downloader_;
         behavior    processor_;
         std::unique_ptr<yolo_data> pyolo_data;
+        bool http_mode;
     };
 }

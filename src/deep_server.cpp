@@ -39,6 +39,7 @@ namespace deep_server{
         image* input;
         cv::Mat output;
 
+        yolo_batch_package():input(nullptr){}
         ~yolo_batch_package() {
             if (input) {
             //    delete input;
@@ -151,11 +152,8 @@ namespace deep_server{
                 yolo_batch_package *data = (yolo_batch_package*)datapointer;
                 std::chrono::time_point<clock_> beg_ = clock_::now();
 
-#if defined WIN32 || defined WINCE
-#else
                 yolop.predict(data->input, data->output);
                 yolop.postprocess(*data->input, data->output);
-#endif
 
                 double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
                 DEEP_LOG_INFO("yolo predict consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
@@ -199,48 +197,50 @@ namespace deep_server{
         }
 
         void process(bool force) {
-            if (batch_tasks.size() >= batch_size || force) {
-                int size = batch_size < batch_tasks.size() ? batch_size : batch_tasks.size();
-                if (getlibmode() == yolo) {
-                    yolo_batch_package *p = new yolo_batch_package();
-                    for (int i = 0; i < size; ++i) {
-                        uint64 d = batch_tasks.front();
-                        batch_tasks.pop_front();
-                        yolo_data* data = (yolo_data*)d;
-                        p->sources.push_back(data);
+            if (batch_tasks.size() > 0) {
+                if (batch_tasks.size() >= batch_size || force) {
+                    int size = batch_size < batch_tasks.size() ? batch_size : batch_tasks.size();
+                    if (getlibmode() == yolo) {
+                        yolo_batch_package *p = new yolo_batch_package();
+                        for (int i = 0; i < size; ++i) {
+                            uint64 d = batch_tasks.front();
+                            batch_tasks.pop_front();
+                            yolo_data* data = (yolo_data*)d;
+                            p->sources.push_back(data);
 
-                        //todo , support 1 pic only, need to add the batch function
-                        p->input = &data->input;
+                            //todo , support 1 pic only, need to add the batch function
+                            p->input = &data->input;
 
-                        if (p->sources.size() > 0){
+                            if (p->sources.size() > 0) {
 
-                            this->send(lib_p, yolo_process_atom::value, (uint64)(uint64*)p);
-                        }
-                    }
-                }
-                else {
-                    caffe_batch_package *p = new caffe_batch_package();
-                    vector < cv::Mat > imgs;
-
-                    for (int i = 0; i < size; ++i) {
-                        uint64 d = batch_tasks.front();
-                        batch_tasks.pop_front();
-                        caffe_data* data = (caffe_data*)d;
-                        p->sources.push_back(data);
-                        imgs.push_back(data->out_image);
-                    }
-                    if (p->sources.size() > 0){
-                        if (batch_size == 1) {
-                            // one pic no need to do the batch mode
-                            if (!FRCNN_API::Frcnn_wrapper::preprocess(imgs[0], p->input)) {
+                                this->send(lib_p, yolo_process_atom::value, (uint64)(uint64*)p);
                             }
                         }
-                        else {
-                            if (!FRCNN_API::Frcnn_wrapper::batch_preprocess(imgs, p->input)) {
-                            }
-                        }
+                    }
+                    else {
+                        caffe_batch_package *p = new caffe_batch_package();
+                        vector < cv::Mat > imgs;
 
-                        this->send(lib_p, caffe_process_atom::value, (uint64)(uint64*)p);
+                        for (int i = 0; i < size; ++i) {
+                            uint64 d = batch_tasks.front();
+                            batch_tasks.pop_front();
+                            caffe_data* data = (caffe_data*)d;
+                            p->sources.push_back(data);
+                            imgs.push_back(data->out_image);
+                        }
+                        if (p->sources.size() > 0) {
+                            if (batch_size == 1) {
+                                // one pic no need to do the batch mode
+                                if (!FRCNN_API::Frcnn_wrapper::preprocess(imgs[0], p->input)) {
+                                }
+                            }
+                            else {
+                                if (!FRCNN_API::Frcnn_wrapper::batch_preprocess(imgs, p->input)) {
+                                }
+                            }
+
+                            this->send(lib_p, caffe_process_atom::value, (uint64)(uint64*)p);
+                        }
                     }
                 }
             }

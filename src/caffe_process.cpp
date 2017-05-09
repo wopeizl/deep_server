@@ -168,44 +168,67 @@ namespace deep_server {
             caffe_data* data = (caffe_data*)pcaffe_data.get();
 
             std::chrono::time_point<clock_> beg_ = clock_::now();
-            if (!FRCNN_API::Frcnn_wrapper::postprocess(data->cv_image, data->output, data->results)) {
-                fault("fail to Frcnn_wrapper::postprocess ! ");
-                return;
-            }
-            double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.postprocess_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("postprocess caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            beg_ = clock_::now();
-            if (!cvprocess::process_caffe_result(data->results, data->cv_image)) {
-                fault("fail to cvprocess::process_caffe_result ! ");
-                return;
-            }
-            elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-            //pcaffe_data->time_consumed.postprocess_time += elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("process caffe result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
-
-            beg_ = clock_::now();
             vector<unsigned char> odata;
-            if (!cvprocess::writeImage(data->cv_image, odata)) {
-                fault("fail to cvprocess::process_caffe_result ! ");
-                return;
+
+            if (http_mode 
+                || (!http_mode && pcaffe_data->resDataType == org::libcppa::CV_POST_IMAGE)
+                || (!http_mode && pcaffe_data->resDataType == org::libcppa::CV_POST_PNG)) {
+                if (!FRCNN_API::Frcnn_wrapper::postprocess(data->cv_image, data->output, data->results)) {
+                    fault("fail to Frcnn_wrapper::postprocess ! ");
+                    return;
+                }
+                double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                pcaffe_data->time_consumed.postprocess_time = elapsed;
+                pcaffe_data->time_consumed.whole_time += elapsed;
+                DEEP_LOG_INFO("postprocess caffe consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+                beg_ = clock_::now();
+                if (!cvprocess::process_caffe_result(data->results, data->cv_image)) {
+                    fault("fail to cvprocess::process_caffe_result ! ");
+                    return;
+                }
+                elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                //pcaffe_data->time_consumed.postprocess_time += elapsed;
+                pcaffe_data->time_consumed.whole_time += elapsed;
+                DEEP_LOG_INFO("process caffe result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+                beg_ = clock_::now();
+                if (http_mode
+                    || (!http_mode && pcaffe_data->resDataType == org::libcppa::CV_POST_PNG)) {
+                    if (!cvprocess::writeImage(data->cv_image, odata)) {
+                        fault("fail to cvprocess::process_caffe_result ! ");
+                        return;
+                    }
+                }
+                else if (!http_mode && pcaffe_data->resDataType == org::libcppa::CV_IMAGE) {
+                    odata.resize(*data->cv_image.size);
+                    std::memcpy(odata.data(), data->cv_image.data, *data->cv_image.size);
+                    //odata.assign(data->cv_image.data);
+                }
+                elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                pcaffe_data->time_consumed.writeresult_time = elapsed;
+                pcaffe_data->time_consumed.whole_time += elapsed;
+                DEEP_LOG_INFO("write result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
             }
-            elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-            pcaffe_data->time_consumed.writeresult_time = elapsed;
-            pcaffe_data->time_consumed.whole_time += elapsed;
-            DEEP_LOG_INFO("write result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+            else if (pcaffe_data->resDataType == org::libcppa::FRCNN_RESULT) {
+                beg_ = clock_::now();
+
+                //todo
+
+                double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                pcaffe_data->time_consumed.writeresult_time = elapsed;
+                pcaffe_data->time_consumed.whole_time += elapsed;
+                DEEP_LOG_INFO("write result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+            }
 
             connection_handle handle = data->handle;
 
             become(downloader_);
-            send(this, downloader_atom::value, handle, odata);
+            send(this, downloader_atom::value, handle, data->resDataType, odata);
         }
         );
         downloader_.assign(
-            [=](downloader_atom, connection_handle handle, vector<unsigned char>& odata) {
+            [=](downloader_atom, connection_handle handle, int resDataType, vector<unsigned char>& odata) {
 
             DEEP_LOG_INFO(name_ + " starts to downloader_atom.");
 
@@ -213,16 +236,13 @@ namespace deep_server {
                 send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
             }
             else {
-                //org::libcppa::output_m output;
-                //output.set_imgdata(odata.data(), odata.size());
-                send(bk, output_atom::value, odata);
+                send(bk, output_atom::value, resDataType, odata);
             }
         }
         );
     }
 
     behavior caffe_processor::make_behavior() {
-        //send(this, input_atom::value);
         if (http_mode) {
             return (
                 [=](input_atom, std::string& data) {
@@ -289,8 +309,9 @@ namespace deep_server {
             });
         }
         else {
-            return ([=](input_atom, int dataType, vector<unsigned char> idata) {
+            return ([=](input_atom, int dataType, int resDataType, vector<unsigned char> idata) {
                 pcaffe_data->handle = handle_;
+                pcaffe_data->resDataType = resDataType;
 
                 if (dataType == org::libcppa::dataType::CV_IMAGE) {
                     pcaffe_data->cv_image = *(cv::Mat*)idata.data();

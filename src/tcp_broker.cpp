@@ -63,19 +63,11 @@ namespace deep_server {
 
             self->quit();
         },
-        //    [=](connection_handle& handle, output_atom, org::libcppa::output_m& data) {
-        //    string buf = data.SerializeAsString();
-        //    auto s = htonl(static_cast<uint32_t>(buf.size()));
-        //    self->write(hdl, sizeof(uint32_t), &s);
-        //    self->write(hdl, buf.size(), buf.data());
-        //    self->flush(hdl);
-
-        //    DEEP_LOG_INFO("quit tcp broker");
-        //    self->quit();
-        //},
-            [=](connection_handle& handle, output_atom, vector<unsigned char>& odata) {
+        [=](connection_handle& handle, output_atom, int resDataType, vector<unsigned char>& odata) {
             org::libcppa::output_m op;
             op.set_status(org::libcppa::Status::OK);
+            op.set_msg("ok");
+            op.set_datat((org::libcppa::dataType)resDataType);
             op.set_imgdata(odata.data(), odata.size());
             write(op);
         }
@@ -117,7 +109,7 @@ namespace deep_server {
                     self->monitor(actor_processor);
                     self->link_to(actor_processor);
 
-                    self->send(actor_processor, input_atom::value, (int)p.datat(), idata);
+                    self->send(actor_processor, input_atom::value, (int)p.datat(), (int)p.res_datat(), idata);
                 }
                 else {
                     org::libcppa::output_m op;
@@ -140,8 +132,8 @@ namespace deep_server {
             int num_bytes;
             memcpy(&num_bytes, msg.buf.data(), sizeof(uint32_t));
             num_bytes = ntohl(num_bytes);
-            if (num_bytes > (100 * 1024 * 1024)) {
-                DEEP_LOG_ERROR("someone is trying something nasty");
+            if (num_bytes > (32 * 1024 * 1024)) {
+                DEEP_LOG_ERROR("The request pic size is too large > 32 M ");
 
                 org::libcppa::output_m p;
                 p.set_status(org::libcppa::Status::TOO_BIG_DATA);

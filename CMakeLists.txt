@@ -98,7 +98,7 @@ if(MSVC)
     include_directories("d:/work/deep_server/3rd/actor-framework/libcaf_io/")
     include_directories("d:/work/deep_server/3rd/actor-framework/libcaf_core/")
     include_directories("d:/work/deep_server/3rd/jsoncpp-master/include/")
-    include_directories("d:/work/auto_yolo/src/")
+    include_directories("d:/work/yolo_centos/src/")
     link_directories("d:/work/deep_server/3rd/jsoncpp-master/build/src/lib_json/${CMAKE_BUILD_TYPE}/")
     link_directories("d:/work/deep_server/3rd/actor-framework/build/lib/${CMAKE_BUILD_TYPE}/")
 
@@ -107,6 +107,8 @@ if(MSVC)
         "d:/work/deep_server/3rd/actor-framework/build64/lib/Debug/caf_io_static.lib"
         "d:/work/caffe-windows/caffe/build/lib/Debug/caffe-d.lib"
         "d:/work/deep_server/3rd/jsoncpp-master/build/src/lib_json/Debug/jsoncpp.lib"
+        "d:/work/yolo_centos/lib/debug/dnl.lib"
+        "d:/work/yolo_centos/3rdparty/lib/x64/pthreadVC2.lib"
         ws2_32
         kernel32.lib
         user32.lib

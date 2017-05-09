@@ -35,6 +35,7 @@ namespace deep_server {
         std::vector<boost::shared_ptr<caffe::Blob<float> >> output;
         std::vector<caffe::Frcnn::BBox<float>> results;
         connection_handle handle;
+        int resDataType;
         struct time_consume time_consumed;
     };
 

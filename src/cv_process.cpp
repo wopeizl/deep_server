@@ -84,7 +84,7 @@ bool cvprocess::process_caffe_result(std::vector<caffe::Frcnn::BBox<float>> resu
                 , cv::Point(rect.x, rect.y)
                 , CV_FONT_HERSHEY_COMPLEX
                 , 0.8
-                , cv::Scalar(0, 255, 0));
+                , cv::Scalar(0, 0, 255));
         }
     }
 
