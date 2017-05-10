@@ -1,4 +1,4 @@
-package org.libcppa; 
+package deep_server; 
 
 message input_pack {
     optional int32 size = 1;

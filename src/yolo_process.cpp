@@ -151,7 +151,7 @@ namespace deep_server {
             }
 
             // yolo will output the processed png all the time
-            pyolo_data->resDataType = org::libcppa::CV_POST_PNG;
+            pyolo_data->resDataType = deep_server::CV_POST_PNG;
 
             if (http_mode) {
                 send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
@@ -223,6 +223,11 @@ namespace deep_server {
 
                     pyolo_data->handle = handle_;
 
+                    if (!verifyCV_Image(pyolo_data->cv_image)) {
+                        fault("invalid image format £¡");
+                        return;
+                    }
+
                     become(prepare_);
                     send(this, prepare_atom::value, (uint64)(uint64*)pyolo_data.get());
                 }
@@ -239,17 +244,22 @@ namespace deep_server {
 
                 std::chrono::time_point<clock_> beg_ = clock_::now();
 
-                if (dataType == org::libcppa::dataType::PNG) {
+                if (dataType == deep_server::dataType::PNG) {
                     if (!cvprocess::readImage(idata, pyolo_data->cv_image)) {
                         fault("Fail to read image£¡");
                         return;
                     }
                 }
-                else if (dataType == org::libcppa::dataType::CV_IMAGE) {
+                else if (dataType == deep_server::dataType::CV_IMAGE) {
                     pyolo_data->cv_image = *(cv::Mat*)idata.data();
                 }
                 else {
                     fault("invalid data type : £¡" + dataType);
+                    return;
+                }
+
+                if (!verifyCV_Image(pyolo_data->cv_image)) {
+                    fault("invalid image format £¡");
                     return;
                 }
 

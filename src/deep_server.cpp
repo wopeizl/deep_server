@@ -20,6 +20,21 @@ namespace deep_server{
         return g_lib_mode;
     }
 
+    bool verifyCV_Image(const cv::Mat& mat, int maxh, int maxw, int maxc, int minh, int minw, int minc) {
+        if (!mat.empty()) {
+            if (mat.data != nullptr) {
+                if (mat.rows >= minh && mat.rows <= maxh
+                    &&mat.cols >= minw && mat.cols <= maxw
+                    &&mat.channels() >= minc && mat.channels() <= maxc
+                    ) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     // utility function to print an exit message with custom name
     void print_on_exit(const actor& hdl, const std::string& name) {
         hdl->attach_functor([=](const caf::error& reason) {

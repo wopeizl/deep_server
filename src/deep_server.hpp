@@ -226,6 +226,9 @@ namespace deep_server{
     caf::logger& glog(actor* self);
     caf::logger& glog(broker* self);
 
+    bool verifyCV_Image(const cv::Mat& mat, int maxh = 0xfffffff, int maxw = 0xfffffff, int maxc = 0xfffffff,
+        int minh = 0, int minw = 0, int minc = 0);
+
 }
 
 #endif //DEEP_SERVER_DEEP_SERVER_H

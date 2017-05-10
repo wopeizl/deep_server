@@ -42,7 +42,7 @@ namespace deep_server {
             self->quit();
         });
 
-        auto write = [=](const org::libcppa::output_m& p) {
+        auto write = [=](const deep_server::output_m& p) {
             string buf = p.SerializeAsString();
             auto s = htonl(static_cast<uint32_t>(buf.size()));
             self->write(hdl, sizeof(uint32_t), &s);
@@ -64,39 +64,39 @@ namespace deep_server {
             self->quit();
         },
         [=](connection_handle& handle, output_atom, int resDataType, vector<unsigned char>& odata) {
-            org::libcppa::output_m op;
-            op.set_status(org::libcppa::Status::OK);
+            deep_server::output_m op;
+            op.set_status(deep_server::Status::OK);
             op.set_msg("ok");
-            op.set_datat((org::libcppa::dataType)resDataType);
+            op.set_datat((deep_server::dataType)resDataType);
             op.set_imgdata(odata.data(), odata.size());
             write(op);
         }
         };
         auto await_protobuf_data = message_handler{
             [=](const new_data_msg& msg) {
-            org::libcppa::input_m p;
+            deep_server::input_m p;
             p.ParseFromArray(msg.buf.data(), static_cast<int>(msg.buf.size()));
 
             if (p.has_method() && p.has_imgdata()) {
-                if (p.method() == org::libcppa::input_m::CV_FLIP) {
+                if (p.method() == deep_server::input_m::CV_FLIP) {
                     std::vector<unsigned char> odata;
                     vector<unsigned char> idata(p.imgdata().size());
                     std::memcpy(idata.data(), (char*)p.imgdata().data(), p.imgdata().size());
-                    org::libcppa::output_m op;
+                    deep_server::output_m op;
                     if (!cvprocess::flip(idata, odata)) {
                         DEEP_LOG_ERROR("Fail to process pic by " + boost::lexical_cast<string>(p.method()) + ", please check£¡");
-                        op.set_status(org::libcppa::Status::SEVER_FAIL);
+                        op.set_status(deep_server::Status::SEVER_FAIL);
                     }
                     else {
-                        op.set_status(org::libcppa::Status::OK);
-                        op.set_datat(org::libcppa::PNG);
+                        op.set_status(deep_server::Status::OK);
+                        op.set_datat(deep_server::PNG);
                         op.set_imgdata(odata.data(), odata.size());
                     }
                     int a = odata.size();
                     write(op);
                 }
-                else if ((p.method() == org::libcppa::input_m::CAFFE && getlibmode() == caffe)
-                    ||(p.method() == org::libcppa::input_m::YOLO && getlibmode() == yolo)) {
+                else if ((p.method() == deep_server::input_m::CAFFE && getlibmode() == caffe)
+                    ||(p.method() == deep_server::input_m::YOLO && getlibmode() == yolo)) {
                     actor actor_processor;
                     vector<unsigned char> idata(p.imgdata().size());
                     std::memcpy(idata.data(), (char*)p.imgdata().data(), p.imgdata().size());
@@ -112,13 +112,13 @@ namespace deep_server {
                     self->send(actor_processor, input_atom::value, (int)p.datat(), (int)p.res_datat(), idata);
                 }
                 else {
-                    org::libcppa::output_m op;
-                    op.set_status(org::libcppa::Status::WRONG_METHOD);
+                    deep_server::output_m op;
+                    op.set_status(deep_server::Status::WRONG_METHOD);
                     write(op);
                 }
             }else{
-                org::libcppa::output_m op;
-                op.set_status(org::libcppa::Status::INVALID);
+                deep_server::output_m op;
+                op.set_status(deep_server::Status::INVALID);
                 write(op);
             }
 
@@ -135,8 +135,8 @@ namespace deep_server {
             if (num_bytes > (32 * 1024 * 1024)) {
                 DEEP_LOG_ERROR("The request pic size is too large > 32 M ");
 
-                org::libcppa::output_m p;
-                p.set_status(org::libcppa::Status::TOO_BIG_DATA);
+                deep_server::output_m p;
+                p.set_status(deep_server::Status::TOO_BIG_DATA);
                 p.set_msg("too large pic");
                 write(p);
 

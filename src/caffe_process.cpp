@@ -171,8 +171,8 @@ namespace deep_server {
             vector<unsigned char> odata;
 
             if (http_mode 
-                || (!http_mode && pcaffe_data->resDataType == org::libcppa::CV_POST_IMAGE)
-                || (!http_mode && pcaffe_data->resDataType == org::libcppa::CV_POST_PNG)) {
+                || (!http_mode && pcaffe_data->resDataType == deep_server::CV_POST_IMAGE)
+                || (!http_mode && pcaffe_data->resDataType == deep_server::CV_POST_PNG)) {
                 if (!FRCNN_API::Frcnn_wrapper::postprocess(data->cv_image, data->output, data->results)) {
                     fault("fail to Frcnn_wrapper::postprocess ! ");
                     return;
@@ -194,13 +194,13 @@ namespace deep_server {
 
                 beg_ = clock_::now();
                 if (http_mode
-                    || (!http_mode && pcaffe_data->resDataType == org::libcppa::CV_POST_PNG)) {
+                    || (!http_mode && pcaffe_data->resDataType == deep_server::CV_POST_PNG)) {
                     if (!cvprocess::writeImage(data->cv_image, odata)) {
                         fault("fail to cvprocess::process_caffe_result ! ");
                         return;
                     }
                 }
-                else if (!http_mode && pcaffe_data->resDataType == org::libcppa::CV_IMAGE) {
+                else if (!http_mode && pcaffe_data->resDataType == deep_server::CV_IMAGE) {
                     odata.resize(*data->cv_image.size);
                     std::memcpy(odata.data(), data->cv_image.data, *data->cv_image.size);
                     //odata.assign(data->cv_image.data);
@@ -210,7 +210,7 @@ namespace deep_server {
                 pcaffe_data->time_consumed.whole_time += elapsed;
                 DEEP_LOG_INFO("write result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
             }
-            else if (pcaffe_data->resDataType == org::libcppa::FRCNN_RESULT) {
+            else if (pcaffe_data->resDataType == deep_server::FRCNN_RESULT) {
                 beg_ = clock_::now();
 
                 //todo
@@ -299,6 +299,11 @@ namespace deep_server {
 
                     pcaffe_data->handle = handle_;
 
+                    if (!verifyCV_Image(pcaffe_data->cv_image)) {
+                        fault("invalid image format £¡");
+                        return;
+                    }
+
                     become(prepare_);
                     send(this, prepare_atom::value, (uint64)(uint64*)pcaffe_data.get());
                 }
@@ -313,10 +318,10 @@ namespace deep_server {
                 pcaffe_data->handle = handle_;
                 pcaffe_data->resDataType = resDataType;
 
-                if (dataType == org::libcppa::dataType::CV_IMAGE) {
+                if (dataType == deep_server::dataType::CV_IMAGE) {
                     pcaffe_data->cv_image = *(cv::Mat*)idata.data();
                 }
-                else if (dataType == org::libcppa::dataType::PNG) {
+                else if (dataType == deep_server::dataType::PNG) {
                     if (!cvprocess::readImage(idata, pcaffe_data->cv_image)) {
                         fault("Fail to read image£¡");
                         return;
@@ -324,6 +329,11 @@ namespace deep_server {
                 }
                 else {
                     fault("invalid data type : £¡" + dataType);
+                    return;
+                }
+
+                if (!verifyCV_Image(pcaffe_data->cv_image)) {
+                    fault("invalid image format £¡");
                     return;
                 }
 

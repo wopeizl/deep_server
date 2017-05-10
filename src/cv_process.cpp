@@ -52,7 +52,8 @@ bool cvprocess::cvtColor(std::vector<unsigned char>& idata, std::vector<unsigned
 
 
 bool cvprocess::readImage(std::vector<unsigned char>& idata, cv::Mat& dst) {
-    assert(idata.size() > 0);
+    if (idata.size() == 0)
+        return false;
 
     dst = cv::imdecode(idata, CV_LOAD_IMAGE_UNCHANGED);
 
@@ -60,7 +61,8 @@ bool cvprocess::readImage(std::vector<unsigned char>& idata, cv::Mat& dst) {
 }
 
 bool cvprocess::writeImage(cv::Mat& src, std::vector<unsigned char>& odata) {
-    assert(src.data != nullptr);
+    if (src.data == nullptr)
+        return false;
 
     vector<int> param;
     param.push_back(IMWRITE_PNG_COMPRESSION);
