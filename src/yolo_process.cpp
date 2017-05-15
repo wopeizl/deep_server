@@ -140,6 +140,7 @@ namespace deep_server {
             send(this, downloader_atom::value, handle, odata);
         }
         );
+
         downloader_.assign(
             [=](downloader_atom, connection_handle handle, vector<unsigned char>& odata) {
 
@@ -154,10 +155,10 @@ namespace deep_server {
             pyolo_data->resDataType = deep_server::CV_POST_PNG;
 
             if (http_mode) {
-                send(bk, handle, output_atom::value, base64_encode(odata.data(), odata.size()));
+                send(bk, handle, output_atom::value, pyolo_data->resDataType, pyolo_data->callback, base64_encode(odata.data(), odata.size()));
             }
             else {
-                send(bk, handle, output_atom::value, pyolo_data->resDataType, odata);
+                send(bk, handle, output_atom::value, pyolo_data->resDataType, pyolo_data->callback, odata);
             }
         }
         );
@@ -196,6 +197,10 @@ namespace deep_server {
                 pyolo_data->time_consumed.decode_time = elapsed;
                 pyolo_data->time_consumed.whole_time += elapsed;
                 DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+
+                pyolo_data->callback = value.get("callback", "").asString();
+                //pyolo_data->resDataType = value.get("res_dataT", "").asInt();
+                pyolo_data->resDataType = CV_POST_PNG; //always on http mode
 
                 std::string method = value.get("method", "").asString();
                 if (method == "flip") {

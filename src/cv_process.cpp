@@ -73,7 +73,7 @@ bool cvprocess::writeImage(cv::Mat& src, std::vector<unsigned char>& odata) {
 bool cvprocess::process_caffe_result(std::vector<caffe::Frcnn::BBox<float>> results, cv::Mat& cv_image) {
     for (int ir = 0; ir < results.size(); ir++) {
         if (results[ir].confidence > 0.9
-            && results[ir].id == 7) {
+            /*&& results[ir].id == 7*/) {
             cv::Rect rect(results[ir][0], results[ir][1], results[ir][2], results[ir][3]);
            // cv::rectangle(cv_image, rect, cv::Scalar(255, 0, 0), 2);
 

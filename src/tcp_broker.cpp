@@ -63,10 +63,11 @@ namespace deep_server {
 
             self->quit();
         },
-        [=](connection_handle& handle, output_atom, int resDataType, vector<unsigned char>& odata) {
+        [=](connection_handle& handle, output_atom, int resDataType, std::string callback, std::vector<unsigned char>& odata) {
             deep_server::output_m op;
             op.set_status(deep_server::Status::OK);
             op.set_msg("ok");
+            op.set_callback(callback);
             op.set_datat((deep_server::dataType)resDataType);
             op.set_imgdata(odata.data(), odata.size());
             write(op);

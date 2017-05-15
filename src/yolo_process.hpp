@@ -51,6 +51,7 @@ namespace deep_server {
         cv::Mat output;
         connection_handle handle;
         struct time_consume time_consumed;
+        std::string callback;
     };
 
     class yolo_processor : public event_based_actor {

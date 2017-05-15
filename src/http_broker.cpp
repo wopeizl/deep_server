@@ -40,7 +40,7 @@ namespace deep_server{
                             else if (m.method == http_method::HTTP_GET) {
                                 Json::Value root;
                                 Json::StyledWriter writer;
-                                root["msg"] = "not supporte";
+                                root["msg"] = "not supported";
                                 root["status"] = 200;
 
                                 std::string result = writer.write(root);
@@ -57,7 +57,7 @@ namespace deep_server{
                             else {
                                 Json::Value root;
                                 Json::StyledWriter writer;
-                                root["msg"] = "not supporte";
+                                root["msg"] = "not supported";
                                 root["status"] = 200;
 
                                 std::string result = writer.write(root);
@@ -75,12 +75,14 @@ namespace deep_server{
                         }
                     //}
                 },
-                [=](connection_handle& handle, output_atom, std::string content) {
+                [=](connection_handle& handle, output_atom, int resDataType, std::string callback, std::string content) {
                     Json::Value root;
                     Json::StyledWriter writer;
                     root["data"] = content;
                     root["msg"] =  "ok";
                     root["status"] = 200;
+                    root["callback"] = callback;
+                    root["dataT"] = resDataType;
 
                     std::string result = writer.write(root);
                     result = generateHttpbody(result);

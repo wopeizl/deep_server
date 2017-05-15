@@ -45,6 +45,7 @@ namespace deep_server{
     struct base_package{};
     struct caffe_batch_package : base_package {
         vector<caffe_data*> sources;
+        std::vector<cv::Mat > imgs;
         std::vector<boost::shared_ptr<caffe::Blob<float> >> input;
         std::vector<boost::shared_ptr<caffe::Blob<float> >> output;
     };
@@ -102,19 +103,21 @@ namespace deep_server{
                 DEEP_LOG_INFO("new request to caffe proc " + boost::lexical_cast<string>(index) + " to process data");
                 caffe_batch_package *data = (caffe_batch_package*)datapointer;
                 std::chrono::time_point<clock_> beg_ = clock_::now();
-                caffep.predict(data->input, data->output);
+                caffep.predict_b(data->imgs, data->output);
                 double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
                 DEEP_LOG_INFO("caffe predict consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
                 for (int i = 0; i < data->sources.size(); ++i) {
                     actor& back = data->sources[i]->self;
                     data->sources[i]->time_consumed.predict_time = elapsed;
                     data->sources[i]->time_consumed.whole_time += elapsed;
-                    if (batch_size == 1) {
-                        data->sources[i]->output = data->output;
-                    }
-                    else {
-                        FRCNN_API::Frcnn_wrapper::copySingleBlob(data->output, i, data->sources[i]->output);
-                    }
+                    //if (batch_size == 1) {
+                    //    //data->sources[i]->output = data->output;
+                    //}
+                    //else {
+                    //    FRCNN_API::Frcnn_wrapper::copySingleBlob(data->output, i, data->sources[i]->output);
+                    //}
+
+                    caffep.postprocess_b(data->imgs, i, data->output, data->sources[i]->results);
                     this->send(back, process_atom::value, (uint64)0);
                 }
                 delete data;
@@ -234,25 +237,24 @@ namespace deep_server{
                     }
                     else {
                         caffe_batch_package *p = new caffe_batch_package();
-                        vector < cv::Mat > imgs;
 
                         for (int i = 0; i < size; ++i) {
                             uint64 d = batch_tasks.front();
                             batch_tasks.pop_front();
                             caffe_data* data = (caffe_data*)d;
                             p->sources.push_back(data);
-                            imgs.push_back(data->out_image);
+                            p->imgs.push_back(data->cv_image);
                         }
                         if (p->sources.size() > 0) {
-                            if (batch_size == 1) {
-                                // one pic no need to do the batch mode
-                                if (!FRCNN_API::Frcnn_wrapper::preprocess(imgs[0], p->input)) {
-                                }
-                            }
-                            else {
-                                if (!FRCNN_API::Frcnn_wrapper::batch_preprocess(imgs, p->input)) {
-                                }
-                            }
+                            //if (batch_size == 1) {
+                            //    // one pic no need to do the batch mode
+                            //    if (!FRCNN_API::Frcnn_wrapper::preprocess(imgs[0], p->input)) {
+                            //    }
+                            //}
+                            //else {
+                            //    if (!FRCNN_API::Frcnn_wrapper::batch_preprocess(imgs, p->input)) {
+                            //    }
+                            //}
 
                             this->send(lib_p, caffe_process_atom::value, (uint64)(uint64*)p);
                         }
