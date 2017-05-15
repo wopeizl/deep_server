@@ -18,7 +18,10 @@ endif()
 # ---[ deep_server project
 project(deep_server C CXX)
 
-set(DEEP_SRCS src/utils.cpp
+set(DEEP_SRCS
+    Depends/caffe/frcnn_wrapper.cpp
+    Depends/caffe/frcnn_wrapper.hpp
+    src/utils.cpp
     src/actorlogger.cpp
     src/base64.cpp
     src/caffe_process.cpp
@@ -86,6 +89,7 @@ deep_warnings_disable(CMAKE_CXX_FLAGS -Wno-sign-compare -Wno-uninitialized)
 #set(Deep_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/include)
 set(deep_server_SRC_DIR ${PROJECT_SOURCE_DIR}/src)
 include_directories(${PROJECT_BINARY_DIR})
+include_directories(${PROJECT_SOURCE_DIR}/Depends/caffe)
 
 if(MSVC)
     #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "c:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/")
@@ -153,8 +157,9 @@ if(MSVC)
         C:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/lib/libopenblas.dll.a
         )
 else()
-    include_directories("${PROJECT_SOURCE_DIR}/3rd/auto_caffe/include/")
-    include_directories("${PROJECT_SOURCE_DIR}/3rd/auto_caffe/build/include/")
+    set(CAFFE_PATH "${PROJECT_SOURCE_DIR}/3rd/auto_caffe")
+    include_directories("${CAFFE_PATH}/include/")
+    include_directories("${CAFFE_PATH}/build/include/")
     include_directories("${PROJECT_SOURCE_DIR}/3rd/actor-framework/libcaf_io/")
     include_directories("${PROJECT_SOURCE_DIR}/3rd/actor-framework/libcaf_core/")
     include_directories("${PROJECT_SOURCE_DIR}/3rd/jsoncpp/include/")
@@ -175,7 +180,7 @@ else()
     target_link_libraries(${PROJECT_NAME}
         "${PROJECT_SOURCE_DIR}/3rd/actor-framework/build/lib/libcaf_core.so"
         "${PROJECT_SOURCE_DIR}/3rd/actor-framework/build/lib/libcaf_io.so"
-        "${PROJECT_SOURCE_DIR}/3rd/auto_caffe/build/lib/libcaffe.so"
+        "${CAFFE_PATH}/build/lib/libcaffe.so"
         "${PROJECT_SOURCE_DIR}/3rd/jsoncpp/build/src/lib_json/libjsoncpp.a"
         "${PROJECT_SOURCE_DIR}/3rd/auto_yolo/lib/libdnl.so"
         #/lib64/libgflags.so

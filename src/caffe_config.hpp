@@ -11,7 +11,7 @@
 //#include "caffe/util/benchmark.hpp"
 #include "caffe/util/signal_handler.h"
 #include "caffe/FRCNN/util/frcnn_vis.hpp"
-#include "caffe/FRCNN/frcnn_wrapper.hpp"
+#include "frcnn_wrapper.hpp"
 #include "caffe/blob.hpp"
 
 #include "deep_config.hpp"

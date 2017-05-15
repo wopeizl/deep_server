@@ -63,7 +63,6 @@ namespace deep_server{
         }
     };
 
-
     class caffe_proc : public blocking_actor{
     public:
         caffe_proc(actor_config& cfg, int count, int i, int bz) : blocking_actor(cfg), xcfg(cfg), solver_count(count), index(i), batch_size(bz) {
