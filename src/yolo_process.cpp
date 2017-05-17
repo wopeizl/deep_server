@@ -21,7 +21,11 @@ bool yolo_process::init(int gpu_id, const char *cfgfile
         return false;
     }
 
+#ifndef SELF_YOLO_WRAPPER
     yolo_init_net(gpu_id, cfgfile, weightfile, namelist, labeldir, thresh, hier_thresh);
+#else
+    wrapper->yolo_init_net_cpp(gpu_id, cfgfile, weightfile, namelist, labeldir, thresh, hier_thresh);
+#endif
 
     return true;
 }
@@ -79,7 +83,12 @@ bool yolo_process::postprocess(image im, cv::Mat &output) {
 
 bool yolo_process::predict(image* input, cv::Mat& output) {
     image out;
+
+#ifndef SELF_YOLO_WRAPPER
     yolo_predict(input, &out);
+#else
+    wrapper->yolo_predict_cpp(input, &out);
+#endif
 
     return true;
 }

@@ -13,7 +13,6 @@ else()
     set( CMAKE_BUILD_TYPE Release )
 endif()
 
-
 if(POLICY CMP0046)
     cmake_policy(SET CMP0046 NEW)
 endif()
@@ -27,6 +26,7 @@ project(deep_server C CXX)
 set(DEEP_SRCS
     Depends/caffe/frcnn_wrapper.cpp
     Depends/caffe/frcnn_wrapper.hpp
+    Depends/yolo/yolo_wrapper.cpp
     src/utils.cpp
     src/actorlogger.cpp
     src/base64.cpp
@@ -58,17 +58,28 @@ include(cmake/ConfigGen.cmake)
 if(MSVC)
     deep_option(CPU_ONLY  "Build deep with CUDA support" ON) 
     deep_option(USE_CUDA  "Build deep without CUDA support" OFF) 
-    add_definitions(-DCPU_ONLY -DBOOST_ALL_NO_LIB)
+    #add_definitions(-DCPU_ONLY -DBOOST_ALL_NO_LIB)
+    add_definitions(-DUSE_CUDA -DBOOST_ALL_NO_LIB)
+    add_definitions(-DYOLO_GPU)
 else()
     deep_option(CPU_ONLY  "Build deep without CUDA support" OFF)
     deep_option(USE_CUDA  "Build deep with CUDA support" ON) 
+    add_definitions(-DUSE_CUDA)
+    add_definitions(-DYOLO_GPU)
 endif()
+
 deep_option(USE_CUDNN "Build deep with cuDNN library support" ON IF NOT CPU_ONLY)
 deep_option(USE_OPENCV "Build with OpenCV support" ON)
 deep_option(USE_OPENMP "Link with OpenMP (when your BLAS wants OpenMP and you get linker errors)" OFF)
 deep_option(USE_NCCL "Build deep with NCCL library support" OFF)
 
 include(cmake/Cuda.cmake)
+
+if(MSVC)
+    #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "c:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/")
+    include("c:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/caffe-builder-config.cmake")
+endif()
+
 include("cmake/External/glog.cmake")
 include_directories(${GLOG_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} ${GLOG_LIBRARIES} )
@@ -96,11 +107,7 @@ deep_warnings_disable(CMAKE_CXX_FLAGS -Wno-sign-compare -Wno-uninitialized)
 set(deep_server_SRC_DIR ${PROJECT_SOURCE_DIR}/src)
 include_directories(${PROJECT_BINARY_DIR})
 include_directories(${PROJECT_SOURCE_DIR}/Depends/caffe)
-
-if(MSVC)
-    #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "c:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/")
-    include("c:/Users/Administrator/.caffe/dependencies/libraries_v140_x64_py27_1.1.0/libraries/caffe-builder-config.cmake")
-endif()
+include_directories(${PROJECT_SOURCE_DIR}/Depends/yolo)
 
 if(MSVC)
     include_directories("d:/work/caffe-windows/caffe/include/")
@@ -109,8 +116,30 @@ if(MSVC)
     include_directories("d:/work/deep_server/3rd/actor-framework/libcaf_core/")
     include_directories("d:/work/deep_server/3rd/jsoncpp-master/include/")
     include_directories("d:/work/yolo_centos/src/")
+    include_directories("d:/work/yolo_centos/3rdparty/include/")
     link_directories("d:/work/deep_server/3rd/jsoncpp-master/build/src/lib_json/${CMAKE_BUILD_TYPE}/")
     link_directories("d:/work/deep_server/3rd/actor-framework/build/lib/${CMAKE_BUILD_TYPE}/")
+
+if(1)
+    include_directories("c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/include/")
+    target_link_libraries(${PROJECT_NAME}
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/cublas.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/cublas_device.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/cuda.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/cudadevrt.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/cudart.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/cufft.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/cufftw.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/curand.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/cusparse.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/nppc.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/nppi.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/npps.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/nvblas.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/nvcuvid.lib"
+        "c:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v6.5/lib/x64/OpenCL.lib"
+        )
+endif()
 
     target_link_libraries(${PROJECT_NAME}
         "d:/work/deep_server/3rd/actor-framework/build64/lib/Debug/caf_core_static.lib"

@@ -1,16 +1,26 @@
 #pragma once
 
 #include "deep_server.hpp"
+#define SELF_YOLO_WRAPPER
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include "image.h"
+
+#ifndef SELF_YOLO_WRAPPER
 #include "yolo_wrapper.h"
+#endif
 
 #ifdef __cplusplus
 }
+#endif
+
+
+#ifdef SELF_YOLO_WRAPPER
+#include "yolo_wrapper.hpp"
+using namespace yolo;
 #endif
 
 class yolo_process {
@@ -32,13 +42,22 @@ public:
     static bool postprocess(image input, cv::Mat &output);
 
     yolo_process() /*: wrapper(nullptr)*/{
+#ifdef SELF_YOLO_WRAPPER
+        wrapper = new yolo_wrapper();
+#endif
         DEEP_LOG_INFO("new yolo process!");
     }
-    ~yolo_process() {}
+    ~yolo_process() {
+#ifdef SELF_YOLO_WRAPPER
+        delete wrapper;
+#endif
+    }
 
 private:
     static bool initialized;
-    //yolo_wrapper* wrapper;
+#ifdef SELF_YOLO_WRAPPER
+    yolo_wrapper* wrapper;
+#endif
 };
 
 namespace deep_server {
