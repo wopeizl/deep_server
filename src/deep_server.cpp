@@ -216,6 +216,8 @@ namespace deep_server{
         void process(bool force) {
             if (batch_tasks.size() > 0) {
                 if (batch_tasks.size() >= batch_size || force) {
+                    DEEP_LOG_INFO("pre process received a new request!");
+
                     int size = batch_size < batch_tasks.size() ? batch_size : batch_tasks.size();
                     if (getlibmode() == yolo) {
                         yolo_batch_package *p = new yolo_batch_package();
@@ -357,7 +359,7 @@ namespace deep_server{
 
         return{
             [=](const deep_manager_process_atom, actor& source, uint64 datapointer) {
-            DEEP_LOG_INFO("new request to caffemanager to process data");
+            DEEP_LOG_INFO("new request to deep manager to process data");
 
             if (self->state.size > 0) {
                 self->send(self->state.preprocess_actors[self->state.active], lib_preprocess_atom::value, 

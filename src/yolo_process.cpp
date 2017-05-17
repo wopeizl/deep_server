@@ -146,9 +146,11 @@ namespace deep_server {
 
             DEEP_LOG_INFO(name_ + " starts to downloader_atom.");
 
-            if (!cvprocess::writeImage(pyolo_data->output, odata)) {
-                fault("fail to cvprocess::process_caffe_result ! ");
-                return;
+            if (pyolo_data->method == input_m::YOLO) {
+                if (!cvprocess::writeImage(pyolo_data->output, odata)) {
+                    fault("fail to cvprocess::process_caffe_result ! ");
+                    return;
+                }
             }
 
             // yolo will output the processed png all the time
@@ -210,6 +212,8 @@ namespace deep_server {
                         return;
                     }
 
+                    pyolo_data->method = input_m::CV_FLIP;
+
                     become(downloader_);
                     send(this, downloader_atom::value, handle_, odata);
                 }
@@ -232,6 +236,8 @@ namespace deep_server {
                         fault("invalid image format £¡");
                         return;
                     }
+
+                    pyolo_data->method = input_m::YOLO;
 
                     become(prepare_);
                     send(this, prepare_atom::value, (uint64)(uint64*)pyolo_data.get());

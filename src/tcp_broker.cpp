@@ -90,8 +90,9 @@ namespace deep_server {
                     }
                     else {
                         op.set_status(deep_server::Status::OK);
-                        op.set_datat(deep_server::PNG);
+                        op.set_datat(deep_server::CV_POST_PNG);
                         op.set_imgdata(odata.data(), odata.size());
+                        op.set_callback(p.callback());
                     }
                     int a = odata.size();
                     write(op);

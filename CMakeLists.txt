@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.7)
 set( CMAKE_VERBOSE_MAKEFILE off )
+
 if(MSVC)
     # CMake 3.4 introduced a WINDOWS_EXPORT_ALL_SYMBOLS target property that makes it possible to
     # build shared libraries without using the usual declspec() decoration.
@@ -7,7 +8,12 @@ if(MSVC)
     # and https://cmake.org/cmake/help/v3.5/prop_tgt/WINDOWS_EXPORT_ALL_SYMBOLS.html
     # for details.
     cmake_minimum_required(VERSION 3.4)
+    set( CMAKE_BUILD_TYPE Debug )
+else()
+    set( CMAKE_BUILD_TYPE Release )
 endif()
+
+
 if(POLICY CMP0046)
     cmake_policy(SET CMP0046 NEW)
 endif()

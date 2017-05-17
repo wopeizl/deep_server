@@ -13,7 +13,6 @@ extern "C" {
 }
 #endif
 
-
 class yolo_process {
 public:
 
@@ -52,6 +51,7 @@ namespace deep_server {
         connection_handle handle;
         struct time_consume time_consumed;
         std::string callback;
+        input_m::methodType method;
     };
 
     class yolo_processor : public event_based_actor {
