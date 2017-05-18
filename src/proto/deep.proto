@@ -10,6 +10,17 @@ message output_pack {
     optional output_m data = 2;
 }
 
+message consume_time{
+    optional float whole_time = 1;
+    optional float decode_time = 2;
+    optional float cvreadimage_time = 3;
+    optional float prepare_time = 4;
+    optional float preprocess_time = 5;
+    optional float predict_time = 6;
+    optional float postprocess_time = 7;
+    optional float writeresult_time = 8;
+}
+
 enum dataType {
     PNG = 0;
     CV_IMAGE = 1;
@@ -44,12 +55,34 @@ enum Status {
     SEVER_FAIL = 5;
 }
 
+message Caffe_result{
+    optional int32 class = 1;
+    optional float score = 2;
+    optional float x = 3;
+    optional float y = 4;
+    optional float w = 5;
+    optional float h = 6;
+}
+
+message Yolo_result{
+    optional int32 class = 1;
+    optional float score = 2;
+    optional float x = 3;
+    optional float y = 4;
+    optional float w = 5;
+    optional float h = 6;
+    optional string label = 7;
+}
+
 message output_m {
     optional int32 cid = 1;
     optional Status status = 2;
     optional string msg = 3;
     optional string version = 4;
     optional dataType dataT = 5 [default = PNG];
-    optional bytes imgdata = 6;
+    optional bytes imgdata = 6;  // can be nothing if dataType is FRCNN_RESULT or YOLO_RESULT
     optional string callback = 7;
+    optional consume_time time = 8;
+    repeated Caffe_result caffe_result = 9;
+    repeated Yolo_result yolo_result = 10;
 }

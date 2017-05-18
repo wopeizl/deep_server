@@ -1,7 +1,7 @@
 #pragma once
 
 #include "deep_server.hpp"
-#define SELF_YOLO_WRAPPER
+//#define SELF_YOLO_WRAPPER
 
 #ifdef __cplusplus
 extern "C" {
@@ -71,6 +71,8 @@ namespace deep_server {
         struct time_consume time_consumed;
         std::string callback;
         input_m::methodType method;
+        tcp_output t_out;
+        http_output h_out;
     };
 
     class yolo_processor : public event_based_actor {

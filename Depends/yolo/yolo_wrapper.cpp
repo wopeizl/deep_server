@@ -108,7 +108,7 @@ namespace yolo{
 
         draw_detections(im, l.w*l.h*l.n, thresh_, boxes, probs, names_, alphabet_, l.classes);
 
-        save_image(im, "./aaa.jpg");
+        //save_image(im, "./aaa.jpg");
         //   output = convert_image_jpg;
 
         free_image(sized);

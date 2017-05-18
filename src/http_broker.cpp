@@ -75,14 +75,57 @@ namespace deep_server{
                         }
                     //}
                 },
-                [=](connection_handle& handle, output_atom, int resDataType, std::string callback, std::string content) {
+                [=](connection_handle& handle, output_atom, int resDataType, std::string callback, http_output out) {
                     Json::Value root;
                     Json::StyledWriter writer;
-                    root["data"] = content;
                     root["msg"] =  "ok";
                     root["status"] = 200;
                     root["callback"] = callback;
                     root["dataT"] = resDataType;
+
+                    if (resDataType == FRCNN_RESULT) {
+                        root["caffe_result"] = Json::Value(Json::arrayValue);
+                        for (int i = 0; i < out.caffe_result.size(); ++i) {
+                            Json::Value sub;
+                            sub["x"] = out.caffe_result[i].x();
+                            sub["y"] = out.caffe_result[i].y();
+                            sub["w"] = out.caffe_result[i].w();
+                            sub["h"] = out.caffe_result[i].h();
+                            sub["class"] = out.caffe_result[i].class_();
+                            sub["score"] = out.caffe_result[i].score();
+
+                            root["caffe_result"][i] = sub;
+                        }
+                    }
+                    else if (resDataType == YOLO_RESULT) {
+                        root["yolo_result"] = Json::Value(Json::arrayValue);
+                        for (int i = 0; i < out.yolo_result.size(); ++i) {
+                            Json::Value sub;
+                            sub["x"] = out.yolo_result[i].x();
+                            sub["y"] = out.yolo_result[i].y();
+                            sub["w"] = out.yolo_result[i].w();
+                            sub["h"] = out.yolo_result[i].h();
+                            sub["class"] = out.yolo_result[i].class_();
+                            sub["score"] = out.yolo_result[i].score();
+
+                            root["yolo_result"][i] = sub;
+                        }
+                    }
+                    else {
+                        root["data"] = out.sdata;
+                    }
+
+#ifdef OUPUT_INCLUDE_TIME_STAMP
+                    root["whole_time"] = out.ts.whole_time;
+                    root["preprocess_time"] = out.ts.preprocess_time;
+                    root["predict_time"] = out.ts.predict_time;
+                    root["prepare_time"] = out.ts.prepare_time;
+                    root["postprocess_time"] = out.ts.postprocess_time;
+                    root["jsonparse_time"] = out.ts.jsonparse_time;
+                    root["decode_time"] = out.ts.decode_time;
+                    root["cvreadimage_time"] = out.ts.cvreadimage_time;
+                    root["writeresult_time"] = out.ts.writeresult_time;
+#endif
 
                     std::string result = writer.write(root);
                     result = generateHttpbody(result);

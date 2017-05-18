@@ -63,13 +63,39 @@ namespace deep_server {
 
             self->quit();
         },
-        [=](connection_handle& handle, output_atom, int resDataType, std::string callback, std::vector<unsigned char>& odata) {
+        [=](connection_handle& handle, output_atom, int resDataType, std::string callback, tcp_output& out) {
             deep_server::output_m op;
             op.set_status(deep_server::Status::OK);
             op.set_msg("ok");
             op.set_callback(callback);
             op.set_datat((deep_server::dataType)resDataType);
-            op.set_imgdata(odata.data(), odata.size());
+            if(resDataType == FRCNN_RESULT){
+                for (int i = 0; i < out.caffe_result.size(); ++i) {
+                    Caffe_result* cr = op.add_caffe_result();
+                    cr->CopyFrom(out.caffe_result[i]);
+                }
+            }
+            else if(resDataType == YOLO_RESULT){
+                for (int i = 0; i < out.yolo_result.size(); ++i) {
+                    Yolo_result* cr = op.add_yolo_result();
+                    cr->CopyFrom(out.yolo_result[i]);
+                }
+            }
+            else {
+                op.set_imgdata(out.bdata.data(), out.bdata.size());
+            }
+#ifdef OUPUT_INCLUDE_TIME_STAMP
+            consume_time t;
+            t.set_cvreadimage_time(out.ts.cvreadimage_time);
+            t.set_predict_time(out.ts.predict_time);
+            t.set_decode_time(out.ts.decode_time);
+            t.set_postprocess_time(out.ts.postprocess_time);
+            t.set_prepare_time(out.ts.prepare_time);
+            t.set_preprocess_time(out.ts.preprocess_time);
+            t.set_whole_time(out.ts.whole_time);
+            t.set_writeresult_time(out.ts.writeresult_time);
+            op.mutable_time()->CopyFrom(t);
+#endif
             write(op);
         }
         };

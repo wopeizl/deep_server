@@ -146,19 +146,27 @@ namespace deep_server {
 
             become(downloader_);
             vector<unsigned char> odata;
-            send(this, downloader_atom::value, handle, odata);
+            send(this, downloader_atom::value, handle);
         }
         );
 
         downloader_.assign(
-            [=](downloader_atom, connection_handle handle, vector<unsigned char>& odata) {
+            [=](downloader_atom, connection_handle handle) {
 
             DEEP_LOG_INFO(name_ + " starts to downloader_atom.");
 
             if (pyolo_data->method == input_m::YOLO) {
-                if (!cvprocess::writeImage(pyolo_data->output, odata)) {
-                    fault("fail to cvprocess::process_caffe_result ! ");
-                    return;
+                if (http_mode) {
+                    if (!cvprocess::writeImage(pyolo_data->output, pyolo_data->h_out.bdata)) {
+                        fault("fail to cvprocess::process_caffe_result ! ");
+                        return;
+                    }
+                }
+                else {
+                    if (!cvprocess::writeImage(pyolo_data->output, pyolo_data->t_out.bdata)) {
+                        fault("fail to cvprocess::process_caffe_result ! ");
+                        return;
+                    }
                 }
             }
 
@@ -166,10 +174,13 @@ namespace deep_server {
             pyolo_data->resDataType = deep_server::CV_POST_PNG;
 
             if (http_mode) {
-                send(bk, handle, output_atom::value, pyolo_data->resDataType, pyolo_data->callback, base64_encode(odata.data(), odata.size()));
+                pyolo_data->h_out.ts = pyolo_data->time_consumed;
+                pyolo_data->h_out.sdata = base64_encode(pyolo_data->h_out.bdata.data(), pyolo_data->h_out.bdata.size());
+                send(bk, handle, output_atom::value, pyolo_data->resDataType, pyolo_data->callback, pyolo_data->h_out);
             }
             else {
-                send(bk, handle, output_atom::value, pyolo_data->resDataType, pyolo_data->callback, odata);
+                pyolo_data->t_out.ts = pyolo_data->time_consumed;
+                send(bk, handle, output_atom::value, pyolo_data->resDataType, pyolo_data->callback, pyolo_data->t_out);
             }
         }
         );
@@ -210,13 +221,16 @@ namespace deep_server {
                 DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
                 pyolo_data->callback = value.get("callback", "").asString();
-                //pyolo_data->resDataType = value.get("res_dataT", "").asInt();
-                pyolo_data->resDataType = CV_POST_PNG; //always on http mode
+                pyolo_data->resDataType = value.get("res_dataT", "").asInt();
+
+                if (pyolo_data->resDataType < 0 || pyolo_data->resDataType > INVALID_OUTDATA) {
+                    fault("invalid response data type!!");
+                    return;
+                }
 
                 std::string method = value.get("method", "").asString();
                 if (method == "flip") {
-                    std::vector<unsigned char> odata;
-                    if (!cvprocess::flip(idata, odata)) {
+                    if (!cvprocess::flip(idata, pyolo_data->h_out.bdata)) {
                         fault("Fail to process pic by " + method + ", please check£¡");
                         return;
                     }
@@ -224,7 +238,7 @@ namespace deep_server {
                     pyolo_data->method = input_m::CV_FLIP;
 
                     become(downloader_);
-                    send(this, downloader_atom::value, handle_, odata);
+                    send(this, downloader_atom::value, handle_);
                 }
                 else if (method == "yolo") {
 

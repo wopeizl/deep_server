@@ -180,11 +180,9 @@ namespace deep_server {
             caffe_data* data = (caffe_data*)pcaffe_data.get();
 
             std::chrono::time_point<clock_> beg_ = clock_::now();
-            vector<unsigned char> odata;
 
-            if (http_mode 
-                || (!http_mode && pcaffe_data->resDataType == deep_server::CV_POST_IMAGE)
-                || (!http_mode && pcaffe_data->resDataType == deep_server::CV_POST_PNG)) {
+            if (pcaffe_data->resDataType == deep_server::CV_POST_IMAGE
+                || pcaffe_data->resDataType == deep_server::CV_POST_PNG) {
                 //if (!FRCNN_API::Frcnn_wrapper::postprocess(data->cv_image, data->output, data->results)) {
                 //    fault("fail to Frcnn_wrapper::postprocess ! ");
                 //    return;
@@ -200,22 +198,24 @@ namespace deep_server {
                     return;
                 }
                 elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-                //pcaffe_data->time_consumed.postprocess_time += elapsed;
+                pcaffe_data->time_consumed.postprocess_time += elapsed;
                 pcaffe_data->time_consumed.whole_time += elapsed;
                 DEEP_LOG_INFO("process caffe result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
                 beg_ = clock_::now();
-                if (http_mode
-                    || (!http_mode && pcaffe_data->resDataType == deep_server::CV_POST_PNG)) {
-                    if (!cvprocess::writeImage(data->cv_image, odata)) {
+                if (http_mode) {
+                    if (!cvprocess::writeImage(data->cv_image, pcaffe_data->h_out.bdata)) {
                         fault("fail to cvprocess::process_caffe_result ! ");
                         return;
                     }
                 }
+                else if (!http_mode && pcaffe_data->resDataType == deep_server::CV_POST_PNG) {
+                    pcaffe_data->t_out.bdata.resize(*data->cv_image.size);
+                    std::memcpy(pcaffe_data->t_out.bdata.data(), data->cv_image.data, *data->cv_image.size);
+                }
                 else if (!http_mode && pcaffe_data->resDataType == deep_server::CV_IMAGE) {
-                    odata.resize(*data->cv_image.size);
-                    std::memcpy(odata.data(), data->cv_image.data, *data->cv_image.size);
-                    //odata.assign(data->cv_image.data);
+                    pcaffe_data->t_out.bdata.resize(*data->cv_image.size);
+                    std::memcpy(pcaffe_data->t_out.bdata.data(), data->cv_image.data, *data->cv_image.size);
                 }
                 elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
                 pcaffe_data->time_consumed.writeresult_time = elapsed;
@@ -225,31 +225,59 @@ namespace deep_server {
             else if (pcaffe_data->resDataType == deep_server::FRCNN_RESULT) {
                 beg_ = clock_::now();
 
-                //todo
+                for (int ir = 0; ir < data->results.size(); ir++) {
+                    if (data->results[ir].confidence > 0.9){
+                        Caffe_result r;
+                        r.set_x(data->results[ir][0]);
+                        r.set_y(data->results[ir][1]);
+                        r.set_w(data->results[ir][2]);
+                        r.set_h(data->results[ir][3]);
+                        r.set_class_(7);
+                        r.set_score(data->results[ir].confidence);
+
+                        if (http_mode) {
+                            pcaffe_data->h_out.caffe_result.push_back(r);
+                        }
+                        else{
+                            pcaffe_data->t_out.caffe_result.push_back(r);
+                        }
+                    }
+                }
 
                 double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
                 pcaffe_data->time_consumed.writeresult_time = elapsed;
                 pcaffe_data->time_consumed.whole_time += elapsed;
                 DEEP_LOG_INFO("write result consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
             }
+            else {
+                fault("invalid return type!!!");
+                return;
+            }
 
             connection_handle handle = data->handle;
 
             become(downloader_);
-            send(this, downloader_atom::value, handle, odata);
+            send(this, downloader_atom::value, handle);
         }
         );
 
         downloader_.assign(
-            [=](downloader_atom, connection_handle handle, vector<unsigned char>& odata) {
+            [=](downloader_atom, connection_handle handle) {
 
             DEEP_LOG_INFO(name_ + " starts to downloader_atom.");
 
             if (http_mode) {
-                send(bk, handle, output_atom::value, pcaffe_data->resDataType, pcaffe_data->callback, base64_encode(odata.data(), odata.size()));
+                pcaffe_data->h_out.ts = pcaffe_data->time_consumed;
+                if(pcaffe_data->resDataType == deep_server::FRCNN_RESULT){
+                }
+                else {
+                    pcaffe_data->h_out.sdata = base64_encode(pcaffe_data->h_out.bdata.data(), pcaffe_data->h_out.bdata.size());
+                }
+                send(bk, handle, output_atom::value, pcaffe_data->resDataType, pcaffe_data->callback, pcaffe_data->h_out);
             }
             else {
-                send(bk, output_atom::value, pcaffe_data->resDataType, pcaffe_data->callback, odata);
+                pcaffe_data->h_out.ts = pcaffe_data->time_consumed;
+                send(bk, output_atom::value, pcaffe_data->resDataType, pcaffe_data->callback, pcaffe_data->t_out);
             }
         }
         );
@@ -275,8 +303,12 @@ namespace deep_server {
                 DEEP_LOG_INFO("parse json consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
                 pcaffe_data->callback = value.get("callback", "").asString();
-                //pcaffe_data->resDataType = value.get("res_dataT", "").asInt();
-                pcaffe_data->resDataType = CV_POST_PNG; //always on http mode
+                pcaffe_data->resDataType = value.get("res_dataT", "").asInt();
+
+                if (pcaffe_data->resDataType < 0 || pcaffe_data->resDataType > INVALID_OUTDATA) {
+                    fault("invalid response data type!!");
+                     return;
+                }
 
                 std::string out = value.get("data", "").asString();
                 vector<unsigned char> idata;
@@ -293,14 +325,15 @@ namespace deep_server {
 
                 std::string method = value.get("method", "").asString();
                 if (method == "flip") {
-                    std::vector<unsigned char> odata;
-                    if (!cvprocess::flip(idata, odata)) {
+                    if (!cvprocess::flip(idata, pcaffe_data->h_out.bdata)) {
                         fault("Fail to process pic by " + method + ", please check£¡");
                         return;
                     }
 
+                    pcaffe_data->h_out.sdata = base64_encode(pcaffe_data->h_out.bdata.data(), pcaffe_data->h_out.bdata.size());
+
                     become(downloader_);
-                    send(this, downloader_atom::value, handle_, odata);
+                    send(this, downloader_atom::value, handle_);
                 }
                 else if (method == "caffe") {
 

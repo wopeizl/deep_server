@@ -104,7 +104,7 @@ namespace deep_server{
                 std::chrono::time_point<clock_> beg_ = clock_::now();
                 caffep.predict_b(data->imgs, data->output);
                 double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-                DEEP_LOG_INFO("caffe predict consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+                DEEP_LOG_INFO("yolo predict " + boost::lexical_cast<string>(data->sources.size()) + " pics one time consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
                 for (int i = 0; i < data->sources.size(); ++i) {
                     actor& back = data->sources[i]->self;
                     data->sources[i]->time_consumed.predict_time = elapsed;
@@ -173,7 +173,7 @@ namespace deep_server{
                 yolop.postprocess(*data->input, data->output);
 
                 double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-                DEEP_LOG_INFO("yolo predict consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+                DEEP_LOG_INFO("yolo predict " + boost::lexical_cast<string>(data->sources.size()) + " pics one time consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
                 for (int i = 0; i < data->sources.size(); ++i) {
                     actor& back = data->sources[i]->self;
                     data->sources[i]->output = data->output;
@@ -265,9 +265,9 @@ namespace deep_server{
         }
 
         void act() override {
-            size_t interval = 300;
+            size_t interval = 30;
 
-            this->delayed_send(this, std::chrono::microseconds{ interval }, tick_atom::value, interval);
+            this->delayed_send(this, std::chrono::milliseconds{ interval }, tick_atom::value, interval);
 
             bool running = true;
             this->receive_while(running) (
@@ -275,7 +275,7 @@ namespace deep_server{
                     isprocessing = true;
                     batch_tasks.push_back(datapointer);
                     process(false);
-                    delayed_send(this, std::chrono::microseconds{ interval }, tick_atom::value, interval);
+                    delayed_send(this, std::chrono::milliseconds{ interval }, tick_atom::value, interval);
                     isprocessing = false;
                 },
                 [=](tick_atom, size_t interval) {

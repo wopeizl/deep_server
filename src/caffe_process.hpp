@@ -40,6 +40,8 @@ namespace deep_server {
         int resDataType;
         struct time_consume time_consumed;
         std::string callback;
+        tcp_output t_out;
+        http_output h_out;
     };
 
     class caffe_processor : public event_based_actor {

@@ -229,6 +229,45 @@ namespace deep_server{
     bool verifyCV_Image(const cv::Mat& mat, int maxh = 0xfffffff, int maxw = 0xfffffff, int maxc = 0xff,
         int minh = 0, int minw = 0, int minc = 3);
 
+
+#define OUPUT_INCLUDE_TIME_STAMP
+
+    struct tcp_output {
+#ifdef OUPUT_INCLUDE_TIME_STAMP
+        time_consume ts;
+#endif
+        vector<unsigned char> bdata;
+        vector<Caffe_result> caffe_result;
+        vector<Yolo_result> yolo_result;
+    };
+
+    template <class Inspector>
+    typename Inspector::result_type inspect(Inspector& f, tcp_output& x) {
+#ifdef OUPUT_INCLUDE_TIME_STAMP
+        return f(meta::type_name("tcp_output"), x.ts.whole_time, x.ts.jsonparse_time, x.ts.decode_time, x.ts.cvreadimage_time, x.ts.prepare_time, x.ts.preprocess_time, x.ts.predict_time, x.ts.postprocess_time, x.ts.writeresult_time, x.bdata);
+#else
+        return f(meta::type_name("tcp_output"), x.bdata);
+#endif
+    }
+
+    struct http_output {
+#ifdef OUPUT_INCLUDE_TIME_STAMP
+        time_consume ts;
+#endif
+        vector<unsigned char> bdata;
+        std::string sdata;
+        vector<Caffe_result> caffe_result;
+        vector<Yolo_result> yolo_result;
+    };
+
+    template <class Inspector>
+    typename Inspector::result_type inspect(Inspector& f, http_output& x) {
+#ifdef OUPUT_INCLUDE_TIME_STAMP
+        return f(meta::type_name("tcp_output"), x.ts.whole_time, x.ts.jsonparse_time, x.ts.decode_time, x.ts.cvreadimage_time, x.ts.prepare_time, x.ts.preprocess_time, x.ts.predict_time, x.ts.postprocess_time, x.ts.writeresult_time, x.bdata, x.sdata);
+#else
+        return f(meta::type_name("tcp_output"), x.bdata, x.sdata);
+#endif
+    }
 }
 
 #endif //DEEP_SERVER_DEEP_SERVER_H
