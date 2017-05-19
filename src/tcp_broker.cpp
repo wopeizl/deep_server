@@ -95,6 +95,12 @@ namespace deep_server {
             t.set_whole_time(out.ts.whole_time);
             t.set_writeresult_time(out.ts.writeresult_time);
             op.mutable_time()->CopyFrom(t);
+
+            Img_info info;
+            info.set_channel(out.info.channel());
+            info.set_width(out.info.width());
+            info.set_height(out.info.height());
+            op.mutable_info()->CopyFrom(info);
 #endif
             write(op);
         }

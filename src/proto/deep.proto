@@ -74,6 +74,12 @@ message Yolo_result{
     optional string label = 7;
 }
 
+message Img_info{
+    optional int32 width = 1;
+    optional int32 height = 2;
+    optional int32 channel = 3;
+}
+
 message output_m {
     optional int32 cid = 1;
     optional Status status = 2;
@@ -85,4 +91,5 @@ message output_m {
     optional consume_time time = 8;
     repeated Caffe_result caffe_result = 9;
     repeated Yolo_result yolo_result = 10;
+    optional Img_info info = 11;
 }

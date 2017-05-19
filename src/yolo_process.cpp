@@ -261,6 +261,9 @@ namespace deep_server {
                     }
 
                     pyolo_data->method = input_m::YOLO;
+                    pyolo_data->h_out.info.set_width(pyolo_data->cv_image.cols);
+                    pyolo_data->h_out.info.set_height(pyolo_data->cv_image.rows);
+                    pyolo_data->h_out.info.set_channel(pyolo_data->cv_image.channels());
 
                     become(prepare_);
                     send(this, prepare_atom::value, (uint64)(uint64*)pyolo_data.get());
@@ -296,6 +299,10 @@ namespace deep_server {
                     fault("invalid image format £¡");
                     return;
                 }
+
+                pyolo_data->t_out.info.set_width(pyolo_data->cv_image.cols);
+                pyolo_data->t_out.info.set_height(pyolo_data->cv_image.rows);
+                pyolo_data->t_out.info.set_channel(pyolo_data->cv_image.channels());
 
                 double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
                 pyolo_data->time_consumed.cvreadimage_time = elapsed;

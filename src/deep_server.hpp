@@ -235,6 +235,7 @@ namespace deep_server{
     struct tcp_output {
 #ifdef OUPUT_INCLUDE_TIME_STAMP
         time_consume ts;
+        Img_info info;
 #endif
         vector<unsigned char> bdata;
         vector<Caffe_result> caffe_result;
@@ -253,6 +254,7 @@ namespace deep_server{
     struct http_output {
 #ifdef OUPUT_INCLUDE_TIME_STAMP
         time_consume ts;
+        Img_info info;
 #endif
         vector<unsigned char> bdata;
         std::string sdata;

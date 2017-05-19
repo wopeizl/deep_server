@@ -125,6 +125,10 @@ namespace deep_server{
                     root["decode_time"] = out.ts.decode_time;
                     root["cvreadimage_time"] = out.ts.cvreadimage_time;
                     root["writeresult_time"] = out.ts.writeresult_time;
+
+                    root["width"] = out.info.width();
+                    root["height"] = out.info.height();
+                    root["channel"] = out.info.channel();
 #endif
 
                     std::string result = writer.write(root);

@@ -354,6 +354,10 @@ namespace deep_server {
                         return;
                     }
 
+                    pcaffe_data->h_out.info.set_width(pcaffe_data->cv_image.cols);
+                    pcaffe_data->h_out.info.set_height(pcaffe_data->cv_image.rows);
+                    pcaffe_data->h_out.info.set_channel(pcaffe_data->cv_image.channels());
+
                     become(prepare_);
                     send(this, prepare_atom::value, (uint64)(uint64*)pcaffe_data.get());
                 }
@@ -386,6 +390,10 @@ namespace deep_server {
                     fault("invalid image format £¡");
                     return;
                 }
+
+                pcaffe_data->t_out.info.set_width(pcaffe_data->cv_image.cols);
+                pcaffe_data->t_out.info.set_height(pcaffe_data->cv_image.rows);
+                pcaffe_data->t_out.info.set_channel(pcaffe_data->cv_image.channels());
 
                 become(prepare_);
                 send(this, prepare_atom::value, (uint64)(uint64*)pcaffe_data.get());
