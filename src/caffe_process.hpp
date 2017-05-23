@@ -13,7 +13,7 @@ public:
 
     bool prepare(const cv::Mat &input, cv::Mat &img);
     bool preprocess(const cv::Mat &img_in, vector<boost::shared_ptr<Blob<float> >>& input);
-    bool predict(vector<boost::shared_ptr<Blob<float> >>& input, vector<boost::shared_ptr<Blob<float> >>& output);
+    //bool predict(vector<boost::shared_ptr<Blob<float> >>& input, vector<boost::shared_ptr<Blob<float> >>& output);
     bool postprocess(const cv::Mat &img, vector<boost::shared_ptr<Blob<float> >>& input, std::vector<caffe::Frcnn::BBox<float> > &output);
     bool predict_b(const std::vector<cv::Mat >& img_in, vector<boost::shared_ptr<Blob<float> > >& output);
     bool postprocess_b(const std::vector<cv::Mat >& img_in, int imat, vector<boost::shared_ptr<Blob<float> > >& input, std::vector<caffe::Frcnn::BBox<float> > &results);

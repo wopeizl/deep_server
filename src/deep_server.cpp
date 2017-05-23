@@ -104,7 +104,7 @@ namespace deep_server{
                 std::chrono::time_point<clock_> beg_ = clock_::now();
                 caffep.predict_b(data->imgs, data->output);
                 double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
-                DEEP_LOG_INFO("yolo predict " + boost::lexical_cast<string>(data->sources.size()) + " pics one time consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
+                DEEP_LOG_INFO("caffe predict " + boost::lexical_cast<string>(data->sources.size()) + " pics one time consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
                 for (int i = 0; i < data->sources.size(); ++i) {
                     actor& back = data->sources[i]->self;
                     data->sources[i]->time_consumed.predict_time = elapsed;

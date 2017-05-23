@@ -221,6 +221,11 @@ namespace deep_server {
                 DEEP_LOG_INFO("base64 decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
                 pyolo_data->callback = value.get("callback", "").asString();
+                if (!value.get("res_dataT", "").isInt()) {
+                    fault("invalid response data type!!");
+                    return;
+                }
+
                 pyolo_data->resDataType = value.get("res_dataT", "").asInt();
 
                 if (pyolo_data->resDataType < 0 || pyolo_data->resDataType > INVALID_OUTDATA) {

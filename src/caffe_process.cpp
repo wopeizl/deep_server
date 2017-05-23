@@ -102,9 +102,9 @@ bool caffe_process::preprocess(const cv::Mat &img, vector<boost::shared_ptr<Blob
     return wrapper->preprocess(img, input);
 }
 
-bool caffe_process::predict(vector<boost::shared_ptr<Blob<float> >>& input, vector<boost::shared_ptr<Blob<float> >>& output) {
-    return wrapper->predict(input, output);
-}
+//bool caffe_process::predict(vector<boost::shared_ptr<Blob<float> >>& input, vector<boost::shared_ptr<Blob<float> >>& output) {
+//    return wrapper->predict(input, output);
+//}
 
 bool caffe_process::postprocess(const cv::Mat &img, vector<boost::shared_ptr<Blob<float> >>& input, std::vector<caffe::Frcnn::BBox<float> > &output) {
     return wrapper->postprocess(img, input, output);
@@ -303,8 +303,11 @@ namespace deep_server {
                 DEEP_LOG_INFO("parse json consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
                 pcaffe_data->callback = value.get("callback", "").asString();
+                if (!value.get("res_dataT", "").isInt()) {
+                    fault("invalid response data type!!");
+                     return;
+                }
                 pcaffe_data->resDataType = value.get("res_dataT", "").asInt();
-
                 if (pcaffe_data->resDataType < 0 || pcaffe_data->resDataType > INVALID_OUTDATA) {
                     fault("invalid response data type!!");
                      return;
