@@ -238,7 +238,12 @@ namespace FRCNN_API {
         blob_names[2] = "bbox_pred";
 
         float loss;
+#if defined(WIN32) || defined(_WIN32)
+        std::cout << "skip the caffe predict since it is too time consuming.." << std::endl;
+#else
         net_->Forward(&loss);
+#endif // WIN32
+
         for (int i = 0; i < blob_names.size(); ++i) {
             output.push_back(this->net_->blob_by_name(blob_names[i]));
         }

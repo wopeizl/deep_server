@@ -63,7 +63,7 @@ namespace deep_server {
 
             self->quit();
         },
-        [=](connection_handle& handle, output_atom, int resDataType, std::string callback, tcp_output& out) {
+        [=](connection_handle& handle, output_atom, int resDataType, std::string callback, tcp_output out) {
             deep_server::output_m op;
             op.set_status(deep_server::Status::OK);
             op.set_msg("ok");

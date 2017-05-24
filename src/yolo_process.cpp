@@ -145,7 +145,6 @@ namespace deep_server {
             connection_handle handle = data->handle;
 
             become(downloader_);
-            vector<unsigned char> odata;
             send(this, downloader_atom::value, handle);
         }
         );
@@ -304,6 +303,7 @@ namespace deep_server {
                     fault("invalid image format £¡");
                     return;
                 }
+                pyolo_data->method = input_m::YOLO;
 
                 pyolo_data->t_out.info.set_width(pyolo_data->cv_image.cols);
                 pyolo_data->t_out.info.set_height(pyolo_data->cv_image.rows);

@@ -210,10 +210,12 @@ namespace deep_server {
                     }
                 }
                 else if (!http_mode && pcaffe_data->resDataType == deep_server::CV_POST_PNG) {
-                    pcaffe_data->t_out.bdata.resize(*data->cv_image.size);
-                    std::memcpy(pcaffe_data->t_out.bdata.data(), data->cv_image.data, *data->cv_image.size);
+                    if (!cvprocess::writeImage(pcaffe_data->cv_image, pcaffe_data->t_out.bdata)) {
+                        fault("caffe fail to cvprocess::writeImage ! ");
+                        return;
+                    }
                 }
-                else if (!http_mode && pcaffe_data->resDataType == deep_server::CV_IMAGE) {
+                else if (!http_mode && pcaffe_data->resDataType == deep_server::CV_POST_IMAGE) {
                     pcaffe_data->t_out.bdata.resize(*data->cv_image.size);
                     std::memcpy(pcaffe_data->t_out.bdata.data(), data->cv_image.data, *data->cv_image.size);
                 }
@@ -276,8 +278,8 @@ namespace deep_server {
                 send(bk, handle, output_atom::value, pcaffe_data->resDataType, pcaffe_data->callback, pcaffe_data->h_out);
             }
             else {
-                pcaffe_data->h_out.ts = pcaffe_data->time_consumed;
-                send(bk, output_atom::value, pcaffe_data->resDataType, pcaffe_data->callback, pcaffe_data->t_out);
+                pcaffe_data->t_out.ts = pcaffe_data->time_consumed;
+                send(bk, handle, output_atom::value, pcaffe_data->resDataType, pcaffe_data->callback, pcaffe_data->t_out);
             }
         }
         );
@@ -374,6 +376,7 @@ namespace deep_server {
             return ([=](input_atom, int dataType, int resDataType, vector<unsigned char> idata) {
                 pcaffe_data->handle = handle_;
                 pcaffe_data->resDataType = resDataType;
+                std::chrono::time_point<clock_> beg_ = clock_::now();
 
                 if (dataType == deep_server::dataType::CV_IMAGE) {
                     pcaffe_data->cv_image = *(cv::Mat*)idata.data();
@@ -388,6 +391,11 @@ namespace deep_server {
                     fault("invalid data type : £¡" + dataType);
                     return;
                 }
+
+                double elapsed = std::chrono::duration_cast<mill_second_> (clock_::now() - beg_).count();
+                pcaffe_data->time_consumed.decode_time = elapsed;
+                pcaffe_data->time_consumed.whole_time += elapsed;
+                DEEP_LOG_INFO("decode image consume time : " + boost::lexical_cast<string>(elapsed) + "ms!");
 
                 if (!verifyCV_Image(pcaffe_data->cv_image)) {
                     fault("invalid image format £¡");
