@@ -111,6 +111,7 @@ struct http_state {
     }
 
     abstract_broker* self_;
+    actor actor_processor;
     httpanalyzer analyzer;
 };
 

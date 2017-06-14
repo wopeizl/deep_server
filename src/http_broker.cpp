@@ -24,18 +24,17 @@ namespace deep_server{
 
                         if(self->state.analyzer.isDone()) { 
                             if (m.method == http_method::HTTP_POST ){
-                                actor actor_processor;
                                 if (getlibmode() == yolo) {
-                                    actor_processor = self->spawn<yolo_processor>("http_processor", self, msg.handle, cf_manager);
+                                    self->state.actor_processor = self->spawn<yolo_processor>("http_processor", self, msg.handle, cf_manager);
                                 }
                                 else {
-                                    actor_processor = self->spawn<caffe_processor>("http_processor", self, msg.handle, cf_manager);
+                                    self->state.actor_processor = self->spawn<caffe_processor>("http_processor", self, msg.handle, cf_manager);
                                 }
 
-                                self->monitor(actor_processor);
-                                self->link_to(actor_processor);
+                                self->monitor(self->state.actor_processor);
+                                self->link_to(self->state.actor_processor);
                             
-                                self->send(actor_processor, input_atom::value, m.body);
+                                self->send(self->state.actor_processor, input_atom::value, m.body);
                             }
                             else if (m.method == http_method::HTTP_GET) {
                                 Json::Value root;

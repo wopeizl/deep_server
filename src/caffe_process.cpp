@@ -133,6 +133,7 @@ namespace deep_server {
 
         pcaffe_data.reset(new caffe_data());
         pcaffe_data->time_consumed.whole_time = 0.f;
+        //pcaffe_data->self = this->ctrl();
         pcaffe_data->self = this;
         //set_default_handler(skip);
 
@@ -228,7 +229,7 @@ namespace deep_server {
                 beg_ = clock_::now();
 
                 for (int ir = 0; ir < data->results.size(); ir++) {
-                    if (data->results[ir].confidence > 0.9){
+                    if (data->results[ir].confidence > 0.8){
                         Caffe_result r;
                         r.set_x(data->results[ir][0]);
                         r.set_y(data->results[ir][1]);
@@ -281,6 +282,8 @@ namespace deep_server {
                 pcaffe_data->t_out.ts = pcaffe_data->time_consumed;
                 send(bk, handle, output_atom::value, pcaffe_data->resDataType, pcaffe_data->callback, pcaffe_data->t_out);
             }
+
+            release();
         }
         );
     }

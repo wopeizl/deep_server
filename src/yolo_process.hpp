@@ -79,6 +79,9 @@ namespace deep_server {
     public:
 
         ~yolo_processor() {
+        }
+
+        void release() {
             DEEP_LOG_INFO("Whole time for yolo to process this image : " + boost::lexical_cast<string>(pyolo_data->time_consumed.whole_time) + " ms!");
             DEEP_LOG_INFO("Time details  : "
                 + boost::lexical_cast<string>(pyolo_data->time_consumed.jsonparse_time) + ","
@@ -93,6 +96,7 @@ namespace deep_server {
                 + " ms!");
 
             DEEP_LOG_INFO("Finish this round processor.");
+            pyolo_data.reset(nullptr);
         }
 
         yolo_processor(actor_config& cfg,

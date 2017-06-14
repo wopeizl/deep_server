@@ -181,6 +181,8 @@ namespace deep_server {
                 pyolo_data->t_out.ts = pyolo_data->time_consumed;
                 send(bk, handle, output_atom::value, pyolo_data->resDataType, pyolo_data->callback, pyolo_data->t_out);
             }
+
+            release();
         }
         );
     }

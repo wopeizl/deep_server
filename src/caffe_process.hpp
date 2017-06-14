@@ -30,6 +30,7 @@ private:
 namespace deep_server {
 
     struct caffe_data {
+        //actor_control_block* self;
         actor self;
         cv::Mat cv_image;
         cv::Mat out_image;
@@ -48,6 +49,9 @@ namespace deep_server {
     public:
 
         ~caffe_processor() {
+        }
+
+        void release() {
             DEEP_LOG_INFO("Whole time for caffe to process this image : " + boost::lexical_cast<string>(pcaffe_data->time_consumed.whole_time) + " ms!");
             DEEP_LOG_INFO("Time details  : "
                 + boost::lexical_cast<string>(pcaffe_data->time_consumed.jsonparse_time) + ","
@@ -62,6 +66,7 @@ namespace deep_server {
                 + " ms!");
 
             DEEP_LOG_INFO("Finish this round processor.");
+            pcaffe_data.reset(nullptr);
         }
 
         caffe_processor(actor_config& cfg,
@@ -72,6 +77,7 @@ namespace deep_server {
 
         void fault(std::string reason) {
             send(bk, handle_, fault_atom::value, reason);
+            release();
         }
 
     private:
