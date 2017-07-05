@@ -25,8 +25,8 @@ project(deep_server C CXX)
 
 set(DEEP_SRCS
     Depends/caffe/frcnn_wrapper.cpp
-    Depends/caffe/frcnn_wrapper.hpp
     Depends/yolo/yolo_wrapper.cpp
+    Depends/tensorflow/tf_wrapper.cpp
     src/utils.cpp
     src/actorlogger.cpp
     src/base64.cpp
@@ -38,6 +38,7 @@ set(DEEP_SRCS
     src/parserhelper.cpp
     src/tcp_broker.cpp
     src/yolo_process.cpp
+    src/tf_process.cpp
     )
 
 add_executable(deep_server ${DEEP_SRCS}) 
@@ -117,6 +118,7 @@ if(MSVC)
     include_directories("d:/work/deep_server/3rd/jsoncpp-master/include/")
     include_directories("d:/work/yolo_centos/src/")
     include_directories("d:/work/yolo_centos/3rdparty/include/")
+    include_directories(${PROJECT_SOURCE_DIR}/Depends/tensorflow)
     link_directories("d:/work/deep_server/3rd/jsoncpp-master/build/src/lib_json/${CMAKE_BUILD_TYPE}/")
     link_directories("d:/work/deep_server/3rd/actor-framework/build/lib/${CMAKE_BUILD_TYPE}/")
 
