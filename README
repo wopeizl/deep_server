@@ -4,5 +4,8 @@ caffe mode:
 yolo mode:
 ./deep_server --port=12345 -hm -l deep.log  --lib_mode=yolo --gpu=0 --yolo_cfgfile=../3rd/auto_yolo/cfg/yolo.cfg --yolo_weightfile=../3rd/auto_yolo/cfg/yolo.weights --yolo_namelist=../3rd/auto_yolo/data/coco.names --yolo_labeldir=../3rd/auto_yolo/data/labels --yolo_thresh=0.24 --yolo_hier_thresh=0.5
 
+tensorflow mode:
+./deep_server --port=12345 -hm -l deep.log  --lib_mode=tensorflow --tf_gpu=0 --tf_model_base_path=../model/squeezenet.pb --tf_thres=0.5
+
 yolo windows mode:
 ./deep_server --port=12345 -l deep.log  --lib_mode=yolo --gpu=0 --yolo_cfgfile=d:\work\yolo_centos\cfg\yolo.cfg --yolo_weightfile=d:\work\yolo_centos\cfg\yolo.weights --yolo_namelist=d:\work\yolo_centos\data\coco.names --yolo_labeldir=d:\work\yolo_centos\data\labels --yolo_thresh=0.24 --yolo_hier_thresh=0.5

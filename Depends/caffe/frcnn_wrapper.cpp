@@ -17,7 +17,7 @@ namespace FRCNN_API {
 
         const int height = input.rows;
         const int width = input.cols;
-        DLOG(INFO) << "height: " << height << " width: " << width;
+        //DLOG(INFO) << "height: " << height << " width: " << width;
         input.convertTo(img, CV_32FC3);
         for (int r = 0; r < img.rows; r++) {
             for (int c = 0; c < img.cols; c++) {
@@ -204,7 +204,7 @@ namespace FRCNN_API {
         std::vector<cv::Mat> dst_img;
         const int height = img_in.at(0).rows;
         const int width = img_in.at(0).cols;
-        DLOG(INFO) << "height: " << height << " width: " << width;
+        //DLOG(INFO) << "height: " << height << " width: " << width;
 
         for (int i = 0; i < nmat_; i++) {
             cv::Mat img;
